@@ -64,6 +64,7 @@ function AgentPromptCard({ agent }: { agent: PromptAgentName }) {
   const [draft, setDraft] = useState(customPrompts[agent] ?? defaultPrompt);
   const [expanded, setExpanded] = useState(false);
   const [saved, setSaved] = useState(false);
+  const textareaId = `${agent}-prompt-editor`;
 
   const handleSave = () => {
     if (draft.trim() === defaultPrompt.trim()) {
@@ -107,7 +108,11 @@ function AgentPromptCard({ agent }: { agent: PromptAgentName }) {
 
       {expanded && (
         <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
+          <label htmlFor={textareaId} className="sr-only">
+            {meta.label} system prompt
+          </label>
           <textarea
+            id={textareaId}
             className="w-full h-48 rounded-md border border-input bg-background px-3 py-2 text-xs font-mono resize-y focus:outline-none focus:ring-1 focus:ring-ring leading-relaxed"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
