@@ -1,0 +1,292 @@
+@import "katex/dist/katex.min.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 71.4% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+    --primary: 220.9 39.3% 11%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 220 14.3% 95.9%;
+    --secondary-foreground: 220.9 39.3% 11%;
+    --muted: 220 14.3% 95.9%;
+    --muted-foreground: 220 8.9% 46.1%;
+    --accent: 220 14.3% 95.9%;
+    --accent-foreground: 220.9 39.3% 11%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 224 71.4% 4.1%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 224 71.4% 4.1%;
+    --foreground: 210 20% 98%;
+    --card: 224 71.4% 4.1%;
+    --card-foreground: 210 20% 98%;
+    --primary: 210 20% 98%;
+    --primary-foreground: 220.9 39.3% 11%;
+    --secondary: 215 27.9% 16.9%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 215 27.9% 16.9%;
+    --muted-foreground: 217.9 10.6% 64.9%;
+    --accent: 215 27.9% 16.9%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 215 27.9% 16.9%;
+    --input: 215 27.9% 16.9%;
+    --ring: 216 12.2% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* LaTeX Document Preview Styles */
+.latex-document {
+  font-family: "Latin Modern Roman", Georgia, "Times New Roman", serif;
+  font-size: 11pt;
+  line-height: 1.6;
+  max-width: 160mm;
+  margin: 0 auto;
+  color: #1a1a1a;
+}
+
+.latex-doc-title {
+  font-size: 1.7em;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 0.3em;
+}
+
+.latex-author {
+  text-align: center;
+  font-size: 1.1em;
+  margin-bottom: 0.2em;
+}
+
+.latex-date {
+  text-align: center;
+  font-size: 0.95em;
+  color: #555;
+  margin-bottom: 2em;
+}
+
+.latex-title {
+  margin-bottom: 2em;
+  padding-bottom: 1em;
+  border-bottom: 1px solid #ddd;
+}
+
+.latex-abstract {
+  margin: 1.5em 2em;
+  padding: 1em;
+  background: #f9f9f9;
+  border-left: 3px solid #ddd;
+  font-size: 0.95em;
+}
+
+.latex-abstract-title {
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 0.5em;
+  font-size: 1em;
+}
+
+.latex-section-0 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-top: 2em;
+  margin-bottom: 0.8em;
+  padding-bottom: 0.3em;
+  border-bottom: 2px solid #333;
+}
+
+.latex-section-1 {
+  font-size: 1.3em;
+  font-weight: bold;
+  margin-top: 1.8em;
+  margin-bottom: 0.6em;
+}
+
+.latex-section-2 {
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-top: 1.4em;
+  margin-bottom: 0.5em;
+}
+
+.latex-section-3 {
+  font-size: 1em;
+  font-weight: bold;
+  font-style: italic;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
+}
+
+.latex-paragraph {
+  margin-bottom: 0.8em;
+  text-align: justify;
+  text-indent: 1.5em;
+}
+
+.latex-paragraph:first-child {
+  text-indent: 0;
+}
+
+.latex-math-display {
+  margin: 1.2em 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+.latex-code {
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.9em;
+  background: #f5f5f5;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+.latex-link {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.latex-table-container {
+  margin: 1.5em auto;
+  overflow-x: auto;
+}
+
+.latex-table {
+  border-collapse: collapse;
+  margin: 0 auto;
+  font-size: 0.95em;
+}
+
+.latex-table th {
+  border-top: 2px solid #333;
+  border-bottom: 1px solid #333;
+  padding: 0.5em 1em;
+  text-align: left;
+  font-weight: bold;
+}
+
+.latex-table td {
+  padding: 0.4em 1em;
+  border-bottom: 1px solid #ddd;
+}
+
+.latex-table tr:last-child td {
+  border-bottom: 2px solid #333;
+}
+
+.latex-table-caption {
+  text-align: center;
+  font-size: 0.9em;
+  margin-top: 0.5em;
+  color: #555;
+}
+
+.latex-figure {
+  margin: 1.5em auto;
+  text-align: center;
+}
+
+.latex-figure-img {
+  max-width: 100%;
+  height: auto;
+}
+
+.latex-caption {
+  font-size: 0.9em;
+  color: #555;
+  margin-top: 0.5em;
+  text-align: center;
+}
+
+.latex-figure-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: 1.5em 2em;
+  margin: 0.5em auto;
+  max-width: 80%;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%);
+  border: 2px dashed #94a3b8;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 0.9em;
+  font-style: italic;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.latex-list {
+  margin: 0.8em 0;
+  padding-left: 2em;
+}
+
+.latex-list li {
+  margin-bottom: 0.3em;
+}
+
+.latex-bibliography {
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid #ddd;
+}
+
+.latex-references {
+  padding-left: 2em;
+  font-size: 0.9em;
+}
+
+.latex-references li {
+  margin-bottom: 0.5em;
+}
+
+.latex-raw {
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.85em;
+  background: #f5f5f5;
+  padding: 0.8em;
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.latex-error {
+  color: #dc2626;
+  font-style: italic;
+}
+
+.katex-error {
+  color: #dc2626;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+/* KaTeX overrides for consistent sizing */
+.katex {
+  font-size: 1.1em;
+}
+
+.katex-display {
+  margin: 0;
+}
