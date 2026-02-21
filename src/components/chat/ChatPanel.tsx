@@ -20,7 +20,7 @@ export function ChatPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background border-r border-border">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border bg-background">
       <div className="flex items-center justify-between p-3 border-b border-border">
         <h3 className="text-sm font-semibold">AI Chat</h3>
         <AgentSelector />

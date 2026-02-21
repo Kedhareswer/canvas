@@ -1,18 +1,18 @@
 "use client";
 
-import { useSettingsStore, PromptAgentName, GeminiModel, AgentModelConfig } from "@/store/settingsStore";
+import { useSettingsStore, PromptAgentName, GeminiModel, GroqModel, LLMProvider, AgentModelConfig, MODEL_DISPLAY_NAMES, GROQ_MODEL_DISPLAY_NAMES } from "@/store/settingsStore";
 import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
 
 const AGENTS: PromptAgentName[] = ["router", "writer", "reviewer", "formatter", "research", "aggregator"];
 
 const DEFAULT_CONFIGS: Record<PromptAgentName, AgentModelConfig> = {
-  router:      { model: "gemini-2.5-flash", temperature: 0 },
-  writer:      { model: "gemini-2.5-flash", temperature: 0.7 },
-  reviewer:    { model: "gemini-2.5-flash", temperature: 0.3 },
-  formatter:   { model: "gemini-2.5-flash", temperature: 0.3 },
-  research:    { model: "gemini-2.5-flash", temperature: 0.5 },
-  aggregator:  { model: "gemini-2.5-flash", temperature: 0.5 },
+  router:      { provider: "gemini", model: "gemini-2.5-flash", temperature: 0 },
+  writer:      { provider: "gemini", model: "gemini-2.5-flash", temperature: 0.7 },
+  reviewer:    { provider: "gemini", model: "gemini-2.5-flash", temperature: 0.3 },
+  formatter:   { provider: "gemini", model: "gemini-2.5-flash", temperature: 0.3 },
+  research:    { provider: "gemini", model: "gemini-2.5-flash", temperature: 0.5 },
+  aggregator:  { provider: "gemini", model: "gemini-2.5-flash", temperature: 0.5 },
 };
 
 const AGENT_COLORS: Record<PromptAgentName, string> = {
@@ -24,7 +24,7 @@ const AGENT_COLORS: Record<PromptAgentName, string> = {
   aggregator: "bg-rose-500",
 };
 
-const MODELS: GeminiModel[] = [
+const GEMINI_MODELS: GeminiModel[] = [
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
   "gemini-2.5-pro",
@@ -33,6 +33,20 @@ const MODELS: GeminiModel[] = [
   "gemini-3.1-pro-preview",
   "gemini-3-pro-image-preview",
 ];
+
+const GROQ_MODELS: GroqModel[] = [
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "qwen/qwen3-32b",
+  "meta-llama/llama-4-scout-17b-16e-instruct",
+  "deepseek-r1-distill-llama-70b",
+];
+
+function getModelDisplayName(model: string): string {
+  if (model in MODEL_DISPLAY_NAMES) return MODEL_DISPLAY_NAMES[model as GeminiModel];
+  if (model in GROQ_MODEL_DISPLAY_NAMES) return GROQ_MODEL_DISPLAY_NAMES[model as GroqModel];
+  return model;
+}
 
 export function ModelTab() {
   const { agentModelConfigs, setAgentModelConfig, resetAgentModelConfig, maxHops, setMaxHops } =
@@ -44,21 +58,68 @@ export function ModelTab() {
       <div>
         <h3 className="text-sm font-semibold mb-1">Per-Agent Model Configuration</h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Override the Gemini model and temperature for each agent individually.
+          Override the provider, model, and temperature for each agent individually.
         </p>
         <div className="space-y-3">
           {AGENTS.map((agent) => {
             const current = agentModelConfigs[agent] ?? DEFAULT_CONFIGS[agent];
+            const provider = current.provider ?? "gemini";
+            const models = provider === "groq" ? GROQ_MODELS : GEMINI_MODELS;
             const isCustom = agent in agentModelConfigs;
+            const providerSelectId = `${agent}-provider-select`;
             const modelSelectId = `${agent}-model-select`;
             const temperatureInputId = `${agent}-temperature-input`;
 
             return (
-              <div key={agent} className={`flex items-center gap-3 p-3 rounded-lg border ${isCustom ? "border-amber-300 bg-amber-50/50" : "border-border bg-muted/20"}`}>
-                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${AGENT_COLORS[agent]}`} />
-                <span className="w-24 text-sm font-medium capitalize shrink-0">{agent}</span>
+              <div key={agent} className={`p-3 rounded-lg border ${isCustom ? "border-amber-300 bg-amber-50/50" : "border-border bg-muted/20"}`}>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${AGENT_COLORS[agent]}`} />
+                  <span className="text-sm font-medium capitalize flex-1">{agent}</span>
 
-                <div className="flex items-center gap-2 flex-1">
+                  {isCustom && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => resetAgentModelConfig(agent)}
+                      title="Reset to default"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Provider toggle */}
+                  <div className="flex items-center shrink-0">
+                    <label htmlFor={providerSelectId} className="sr-only">
+                      {agent} provider
+                    </label>
+                    <div className="flex rounded-md border border-input overflow-hidden">
+                      {(["gemini", "groq"] as LLMProvider[]).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => {
+                            const defaultModel = p === "groq" ? "llama-3.3-70b-versatile" : "gemini-2.5-flash";
+                            setAgentModelConfig(agent, {
+                              ...current,
+                              provider: p,
+                              model: defaultModel,
+                            });
+                          }}
+                          className={`px-2.5 py-1 text-xs font-medium transition ${
+                            provider === p
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-background text-muted-foreground hover:bg-accent"
+                          }`}
+                        >
+                          {p === "gemini" ? "Gemini" : "Groq"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Model selector */}
                   <label htmlFor={modelSelectId} className="sr-only">
                     {agent} model
                   </label>
@@ -68,16 +129,17 @@ export function ModelTab() {
                     onChange={(e) =>
                       setAgentModelConfig(agent, {
                         ...current,
-                        model: e.target.value as GeminiModel,
+                        model: e.target.value as GeminiModel | GroqModel,
                       })
                     }
-                    className="flex-1 text-xs border border-input rounded-md px-2 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="flex-1 min-w-[140px] text-xs border border-input rounded-md px-2 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                   >
-                    {MODELS.map((m) => (
-                      <option key={m} value={m}>{m}</option>
+                    {models.map((m) => (
+                      <option key={m} value={m}>{getModelDisplayName(m)}</option>
                     ))}
                   </select>
 
+                  {/* Temperature */}
                   <div className="flex items-center gap-1.5 shrink-0">
                     <label htmlFor={temperatureInputId} className="text-xs text-muted-foreground">
                       Temp
@@ -98,18 +160,6 @@ export function ModelTab() {
                       className="w-16 text-xs border border-input rounded-md px-2 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                     />
                   </div>
-
-                  {isCustom && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 shrink-0"
-                      onClick={() => resetAgentModelConfig(agent)}
-                      title="Reset to default"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
                 </div>
               </div>
             );

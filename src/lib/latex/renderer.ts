@@ -17,6 +17,16 @@ function renderInlineContent(raw: string): string {
     .join("");
 }
 
+/** Render an array of already-parsed AST nodes to HTML */
+function renderNodes(nodes: ASTNode[]): string {
+  return nodes
+    .map((node, i) => {
+      if (node.type === "text") return escapeHtml(node.content);
+      return renderNode(node, i);
+    })
+    .join("");
+}
+
 function renderNode(node: ASTNode, key: number): string {
   switch (node.type) {
     case "title":
@@ -71,11 +81,15 @@ function renderNode(node: ASTNode, key: number): string {
 
     case "figure": {
       const isGenPlaceholder = node.src.startsWith("[gen:");
+      const isDataUri = node.src.startsWith("data:");
+      const isUrl = node.src.startsWith("http") || node.src.startsWith("/api/images/") || isDataUri;
       const imgHtml = isGenPlaceholder
         ? `<div class="latex-figure-placeholder">${escapeHtml(node.src.slice(5, -1))}</div>`
-        : `<img src="${escapeAttr(node.src)}" alt="${escapeAttr(node.caption)}" class="latex-figure-img" />`;
+        : isUrl || isDataUri
+          ? `<img src="${escapeAttr(node.src)}" alt="${escapeAttr(node.caption)}" class="latex-figure-img" />`
+          : `<div class="latex-figure-placeholder">${escapeHtml(node.src || "Image")}</div>`;
       return `
-        <figure class="latex-figure" key="${key}">
+        <figure class="latex-figure" key="${key}"${node.label ? ` id="${escapeAttr(node.label)}"` : ""}>
           ${imgHtml}
           ${node.caption ? `<figcaption class="latex-caption">${renderInlineContent(node.caption)}</figcaption>` : ""}
         </figure>
@@ -84,9 +98,35 @@ function renderNode(node: ASTNode, key: number): string {
 
     case "list": {
       const tag = node.ordered ? "ol" : "ul";
-      const items = node.items.map((item, i) => `<li key="${i}">${renderInlineContent(item)}</li>`).join("");
+      const items = node.items
+        .map((item, i) => {
+          const contentHtml = renderNodes(item.content);
+          const nestedHtml = item.nestedList ? renderNode(item.nestedList, i + 1000) : "";
+          return `<li key="${i}">${contentHtml}${nestedHtml}</li>`;
+        })
+        .join("");
       return `<${tag} class="latex-list" key="${key}">${items}</${tag}>`;
     }
+
+    case "description-list": {
+      const items = node.items
+        .map((item, i) => {
+          const descHtml = renderNodes(item.description);
+          return `<dt key="dt-${i}">${renderInlineContent(item.term)}</dt><dd key="dd-${i}">${descHtml}</dd>`;
+        })
+        .join("");
+      return `<dl class="latex-description-list" key="${key}">${items}</dl>`;
+    }
+
+    case "cite": {
+      const links = node.keys
+        .map((k) => `<a href="#ref-${escapeAttr(k)}" class="latex-cite">${escapeHtml(k)}</a>`)
+        .join(", ");
+      return `<span class="latex-citations" key="${key}">[${links}]</span>`;
+    }
+
+    case "footnote":
+      return `<sup class="latex-footnote" key="${key}" title="${escapeAttr(node.content)}">*</sup>`;
 
     case "bibliography":
       return `
@@ -107,7 +147,6 @@ function renderNode(node: ASTNode, key: number): string {
 }
 
 function processTextContent(content: string, key: number): string {
-  // Split on double newlines for paragraphs
   const paragraphs = content.split(/\n{2,}/);
   if (paragraphs.length > 1) {
     return paragraphs
@@ -121,7 +160,6 @@ function processTextContent(content: string, key: number): string {
 }
 
 function renderTable(content: string, key: number): string {
-  // Extract tabular content
   const tabularMatch = content.match(
     /\\begin\{tabular\}\{([^}]*)\}([\s\S]*?)\\end\{tabular\}/
   );
@@ -135,15 +173,26 @@ function renderTable(content: string, key: number): string {
     .map((r) => r.trim())
     .filter((r) => r && !r.startsWith("\\hline") && !r.startsWith("\\toprule") && !r.startsWith("\\midrule") && !r.startsWith("\\bottomrule"));
 
-  // Extract caption if present
+  // Extract caption — use full content (table environment wrapping tabular)
   const captionMatch = content.match(/\\caption\{([^}]*)\}/);
+  const labelMatch = content.match(/\\label\{([^}]*)\}/);
 
-  let html = `<div class="latex-table-container" key="${key}">`;
+  let html = `<div class="latex-table-container" key="${key}"${labelMatch ? ` id="${escapeAttr(labelMatch[1])}"` : ""}>`;
   html += `<table class="latex-table">`;
 
   rows.forEach((row, i) => {
-    const cleanRow = row.replace(/\\(hline|toprule|midrule|bottomrule)/g, "").trim();
+    let cleanRow = row
+      .replace(/\\(hline|toprule|midrule|bottomrule)/g, "")
+      .replace(/\\cline\{[^}]*\}/g, "")
+      .trim();
     if (!cleanRow) return;
+
+    // Handle \multicolumn{span}{align}{content}
+    cleanRow = cleanRow.replace(
+      /\\multicolumn\{(\d+)\}\{[^}]*\}\{([^}]*)\}/g,
+      (_match, _span, cellContent) => cellContent
+    );
+
     const cells = cleanRow.split("&").map((c) => c.trim());
     const cellTag = i === 0 ? "th" : "td";
     html += "<tr>";

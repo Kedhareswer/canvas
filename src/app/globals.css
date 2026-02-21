@@ -195,6 +195,10 @@
   border-bottom: 2px solid #333;
 }
 
+.latex-table tr:nth-child(even) td {
+  background: #fafafa;
+}
+
 .latex-table-caption {
   text-align: center;
   font-size: 0.9em;
@@ -244,6 +248,74 @@
 
 .latex-list li {
   margin-bottom: 0.3em;
+}
+
+/* Nested list styles */
+.latex-list .latex-list {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+
+ul.latex-list {
+  list-style-type: disc;
+}
+
+ul.latex-list ul.latex-list {
+  list-style-type: circle;
+}
+
+ul.latex-list ul.latex-list ul.latex-list {
+  list-style-type: square;
+}
+
+ol.latex-list {
+  list-style-type: decimal;
+}
+
+ol.latex-list ol.latex-list {
+  list-style-type: lower-alpha;
+}
+
+ol.latex-list ol.latex-list ol.latex-list {
+  list-style-type: lower-roman;
+}
+
+/* Description list */
+.latex-description-list {
+  margin: 0.8em 0;
+  padding-left: 1em;
+}
+
+.latex-description-list dt {
+  font-weight: bold;
+  margin-top: 0.5em;
+}
+
+.latex-description-list dd {
+  margin-left: 2em;
+  margin-bottom: 0.3em;
+}
+
+/* Citation links */
+.latex-cite {
+  color: #2563eb;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.latex-cite:hover {
+  text-decoration: underline;
+}
+
+.latex-citations {
+  font-size: 0.9em;
+}
+
+/* Footnotes */
+.latex-footnote {
+  color: #2563eb;
+  cursor: help;
+  font-size: 0.8em;
 }
 
 .latex-bibliography {

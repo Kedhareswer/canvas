@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
 
   const googleApiKey = req.headers.get("X-API-Key") || undefined;
   const exaApiKey = req.headers.get("X-Exa-Key") || undefined;
+  const groqApiKey = req.headers.get("X-Groq-Key") || undefined;
   const customPrompts = parseBase64Header(req, "X-Custom-Prompts");
   const modelConfigs = parseBase64Header(req, "X-Model-Configs");
 
@@ -100,6 +101,7 @@ export async function POST(req: NextRequest) {
               streamMode: "updates",
               configurable: {
                 googleApiKey,
+                groqApiKey,
                 exaApiKey,
                 customPrompts,
                 modelConfigs,

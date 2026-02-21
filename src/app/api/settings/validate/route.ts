@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatGroq } from "@langchain/groq";
 
 function shortError(e: unknown): string {
   if (e instanceof Error) return e.message.slice(0, 120);
@@ -7,11 +8,12 @@ function shortError(e: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
-  const { googleApiKey, exaApiKey } = await req.json();
+  const { googleApiKey, exaApiKey, groqApiKey } = await req.json();
 
   const errors: string[] = [];
   let googleValid: boolean | undefined;
   let exaValid: boolean | undefined;
+  let groqValid: boolean | undefined;
 
   if (googleApiKey) {
     const validationModels = [
@@ -45,6 +47,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (groqApiKey) {
+    try {
+      const llm = new ChatGroq({
+        model: "llama-3.1-8b-instant",
+        temperature: 0,
+        apiKey: groqApiKey,
+        maxTokens: 1,
+      });
+      await llm.invoke("hi");
+      groqValid = true;
+    } catch (e) {
+      groqValid = false;
+      errors.push(`Groq API Key: ${shortError(e)}`);
+    }
+  }
+
   if (exaApiKey) {
     try {
       const res = await fetch("https://api.exa.ai/search", {
@@ -63,10 +81,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const valid = errors.length === 0 && (googleApiKey ? googleValid : true);
+  const valid = errors.length === 0 && (googleApiKey ? googleValid : true) && (groqApiKey ? groqValid : true);
   return NextResponse.json({
     valid,
     google: googleValid,
+    groq: groqValid,
     exa: exaValid,
     message: valid ? "All provided keys are valid." : undefined,
     error: errors.length > 0 ? errors.join("; ") : undefined,

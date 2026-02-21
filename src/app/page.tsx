@@ -1,9 +1,36 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDocumentsStore, StoredDocument } from "@/store/documentsStore";
-import { Plus, Search, ArrowUpRight, Sparkles, FileText, Clock3, Settings } from "lucide-react";
+import {
+  useSettingsStore,
+  GeminiModel,
+  GroqModel,
+  LLMProvider,
+  MODEL_DISPLAY_NAMES,
+  MODEL_TAGS,
+  GROQ_MODEL_DISPLAY_NAMES,
+  GROQ_MODEL_TAGS,
+  CitationStyle,
+  DocumentClass,
+} from "@/store/settingsStore";
+import {
+  Plus,
+  Search,
+  ArrowUpRight,
+  Sparkles,
+  FileText,
+  Clock3,
+  Settings,
+  ChevronDown,
+  Globe,
+  RefreshCw,
+  BookOpen,
+  FileType,
+  X,
+  Check,
+} from "lucide-react";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 
 const displayFont = Cormorant_Garamond({
@@ -43,6 +70,49 @@ const EXAMPLE_PROMPTS = [
   },
 ];
 
+const GEMINI_MODEL_GROUPS: { label: string; models: GeminiModel[] }[] = [
+  {
+    label: "2.5 Series",
+    models: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"],
+  },
+  {
+    label: "3.x Series",
+    models: [
+      "gemini-3-flash-preview",
+      "gemini-3-pro-preview",
+      "gemini-3.1-pro-preview",
+      "gemini-3-pro-image-preview",
+    ],
+  },
+];
+
+const GROQ_MODEL_GROUPS: { label: string; models: GroqModel[] }[] = [
+  {
+    label: "Llama",
+    models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "meta-llama/llama-4-scout-17b-16e-instruct"],
+  },
+  {
+    label: "Others",
+    models: ["qwen/qwen3-32b", "deepseek-r1-distill-llama-70b"],
+  },
+];
+
+const CITATION_OPTIONS: { value: CitationStyle; label: string }[] = [
+  { value: "ieee", label: "IEEE" },
+  { value: "apa", label: "APA" },
+  { value: "mla", label: "MLA" },
+  { value: "chicago", label: "Chicago" },
+  { value: "harvard", label: "Harvard" },
+];
+
+const DOC_CLASS_OPTIONS: { value: DocumentClass; label: string }[] = [
+  { value: "article", label: "Article" },
+  { value: "report", label: "Report" },
+  { value: "book", label: "Book" },
+  { value: "beamer", label: "Beamer" },
+  { value: "letter", label: "Letter" },
+];
+
 function formatRelativeDate(value: string) {
   const date = new Date(value).getTime();
   if (!Number.isFinite(date)) return "Recently";
@@ -53,6 +123,353 @@ function formatRelativeDate(value: string) {
   return `${diffDays}d ago`;
 }
 
+/* ── Popover hook ─────────────────────────────────────── */
+function usePopover() {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  function toggle() {
+    if (!open && ref.current) {
+      setRect(ref.current.getBoundingClientRect());
+    }
+    setOpen((v) => !v);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return { open, toggle, ref, rect };
+}
+
+/* ── Model Selector ───────────────────────────────────── */
+function ModelSelector() {
+  const { open, toggle, ref, rect } = usePopover();
+  const quickModel = useSettingsStore((s) => s.quickModel);
+  const quickProvider = useSettingsStore((s) => s.quickProvider);
+  const setQuickModel = useSettingsStore((s) => s.setQuickModel);
+  const setQuickProvider = useSettingsStore((s) => s.setQuickProvider);
+
+  const displayName = quickProvider === "groq"
+    ? GROQ_MODEL_DISPLAY_NAMES[quickModel as GroqModel] ?? quickModel
+    : MODEL_DISPLAY_NAMES[quickModel as GeminiModel] ?? quickModel;
+
+  const modelGroups = quickProvider === "groq" ? GROQ_MODEL_GROUPS : GEMINI_MODEL_GROUPS;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={toggle}
+        className="inline-flex items-center gap-1.5 rounded-full border border-[#d3d9d3] bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-[#b0bab0] hover:bg-[#f5f7f5]"
+      >
+        <span className="text-[10px] font-bold uppercase text-slate-400 mr-0.5">{quickProvider === "groq" ? "Groq" : "Gemini"}</span>
+        {displayName}
+        <ChevronDown className="h-3 w-3" />
+      </button>
+
+      {open && rect && (
+        <div
+          className="fixed z-50 w-72 overflow-hidden rounded-xl border border-[#d3d9d3] bg-white shadow-lg"
+          style={{ top: rect.bottom + 8, right: window.innerWidth - rect.right }}
+        >
+          {/* Provider tabs */}
+          <div className="flex border-b border-[#eef0ee]">
+            {(["gemini", "groq"] as LLMProvider[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => {
+                  if (p !== quickProvider) {
+                    setQuickProvider(p);
+                    setQuickModel(p === "groq" ? "llama-3.3-70b-versatile" : "gemini-2.5-flash");
+                  }
+                }}
+                className={`flex-1 px-3 py-2 text-xs font-bold uppercase tracking-wider transition ${quickProvider === p
+                    ? "bg-[#eef3ee] text-[#1c4f2d] border-b-2 border-[#1c4f2d]"
+                    : "text-slate-400 hover:text-slate-600 hover:bg-[#f9faf9]"
+                  }`}
+              >
+                {p === "gemini" ? "Gemini" : "Groq"}
+              </button>
+            ))}
+          </div>
+
+          {/* Model list */}
+          {modelGroups.map((group) => (
+            <div key={group.label}>
+              <div className="border-b border-[#eef0ee] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {group.label}
+              </div>
+              {group.models.map((model) => {
+                const active = model === quickModel;
+                const name = quickProvider === "groq"
+                  ? GROQ_MODEL_DISPLAY_NAMES[model as GroqModel] ?? model
+                  : MODEL_DISPLAY_NAMES[model as GeminiModel] ?? model;
+                const tag = quickProvider === "groq"
+                  ? GROQ_MODEL_TAGS[model as GroqModel]
+                  : MODEL_TAGS[model as GeminiModel];
+                return (
+                  <button
+                    key={model}
+                    onClick={() => {
+                      setQuickModel(model);
+                      toggle();
+                    }}
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-[#f3f5f3] ${active ? "bg-[#eef3ee] font-semibold text-[#1c4f2d]" : "text-slate-700"
+                      }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      {active && <Check className="h-3.5 w-3.5 text-[#1c4f2d]" />}
+                      {!active && <span className="h-3.5 w-3.5" />}
+                      {name}
+                    </span>
+                    {tag && (
+                      <span className="rounded-full bg-[#eef0ee] px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                        {tag}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Skills Popover ───────────────────────────────────── */
+function SkillsPopover() {
+  const { open, toggle, ref, rect } = usePopover();
+  const skills = useSettingsStore((s) => s.landingSkills);
+  const setSkills = useSettingsStore((s) => s.setLandingSkills);
+
+  const activeCount =
+    (skills.webResearch ? 1 : 0) +
+    (skills.deepReview ? 1 : 0) +
+    (skills.citationStyle ? 1 : 0) +
+    (skills.documentClass ? 1 : 0);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={toggle}
+        className={`inline-flex h-9 w-9 items-center justify-center rounded-md border text-slate-500 transition hover:border-[#b0bab0] hover:bg-[#f5f7f5] ${activeCount > 0
+            ? "border-[#6f8c75] bg-[#eef3ee] text-[#1c4f2d]"
+            : "border-[#d3d8d3] bg-white"
+          }`}
+        aria-label="Add enhancements"
+      >
+        {activeCount > 0 ? (
+          <span className="text-xs font-bold">{activeCount}</span>
+        ) : (
+          <Plus className="h-4 w-4" />
+        )}
+      </button>
+
+      {open && rect && (
+        <div
+          className="fixed z-50 w-72 overflow-hidden rounded-xl border border-[#d3d9d3] bg-white shadow-lg"
+          style={{ top: rect.bottom + 8, left: rect.left }}
+        >
+          <div className="border-b border-[#eef0ee] px-3 py-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Enhancements
+              </span>
+              {activeCount > 0 && (
+                <button
+                  onClick={() => {
+                    setSkills({
+                      webResearch: false,
+                      deepReview: false,
+                      citationStyle: null,
+                      documentClass: null,
+                    });
+                  }}
+                  className="text-[10px] font-medium text-slate-400 transition hover:text-slate-600"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Toggle skills */}
+          <div className="space-y-0.5 p-1.5">
+            <button
+              onClick={() => setSkills({ webResearch: !skills.webResearch })}
+              className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-[#f3f5f3] ${skills.webResearch ? "bg-[#eef3ee]" : ""
+                }`}
+            >
+              <Globe className={`h-4 w-4 shrink-0 ${skills.webResearch ? "text-[#1c4f2d]" : "text-slate-400"}`} />
+              <span className="flex-1">
+                <span className={`block text-sm font-medium ${skills.webResearch ? "text-[#1c4f2d]" : "text-slate-700"}`}>
+                  Web Research
+                </span>
+                <span className="block text-[11px] leading-tight text-slate-400">
+                  Search the web for real citations
+                </span>
+              </span>
+              {skills.webResearch && <Check className="h-4 w-4 shrink-0 text-[#1c4f2d]" />}
+            </button>
+
+            <button
+              onClick={() => setSkills({ deepReview: !skills.deepReview })}
+              className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-[#f3f5f3] ${skills.deepReview ? "bg-[#eef3ee]" : ""
+                }`}
+            >
+              <RefreshCw className={`h-4 w-4 shrink-0 ${skills.deepReview ? "text-[#1c4f2d]" : "text-slate-400"}`} />
+              <span className="flex-1">
+                <span className={`block text-sm font-medium ${skills.deepReview ? "text-[#1c4f2d]" : "text-slate-700"}`}>
+                  Deep Review
+                </span>
+                <span className="block text-[11px] leading-tight text-slate-400">
+                  4 revision passes for thorough editing
+                </span>
+              </span>
+              {skills.deepReview && <Check className="h-4 w-4 shrink-0 text-[#1c4f2d]" />}
+            </button>
+          </div>
+
+          {/* Citation style */}
+          <div className="border-t border-[#eef0ee] p-2">
+            <div className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Citation Style
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {CITATION_OPTIONS.map((opt) => {
+                const active = skills.citationStyle === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() =>
+                      setSkills({
+                        citationStyle: active ? null : opt.value,
+                      })
+                    }
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${active
+                        ? "bg-[#1c4f2d] text-white"
+                        : "bg-[#f0f2f0] text-slate-600 hover:bg-[#e4e8e4]"
+                      }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Document class */}
+          <div className="border-t border-[#eef0ee] p-2">
+            <div className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Document Class
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {DOC_CLASS_OPTIONS.map((opt) => {
+                const active = skills.documentClass === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() =>
+                      setSkills({
+                        documentClass: active ? null : opt.value,
+                      })
+                    }
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${active
+                        ? "bg-[#1c4f2d] text-white"
+                        : "bg-[#f0f2f0] text-slate-600 hover:bg-[#e4e8e4]"
+                      }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Active Skills Chips ──────────────────────────────── */
+function SkillChips() {
+  const skills = useSettingsStore((s) => s.landingSkills);
+  const setSkills = useSettingsStore((s) => s.setLandingSkills);
+
+  const chips: { key: string; label: string; icon: React.ReactNode; onRemove: () => void }[] = [];
+
+  if (skills.webResearch) {
+    chips.push({
+      key: "web",
+      label: "Web Research",
+      icon: <Globe className="h-3 w-3" />,
+      onRemove: () => setSkills({ webResearch: false }),
+    });
+  }
+  if (skills.deepReview) {
+    chips.push({
+      key: "deep",
+      label: "Deep Review",
+      icon: <RefreshCw className="h-3 w-3" />,
+      onRemove: () => setSkills({ deepReview: false }),
+    });
+  }
+  if (skills.citationStyle) {
+    chips.push({
+      key: "cite",
+      label: skills.citationStyle.toUpperCase(),
+      icon: <BookOpen className="h-3 w-3" />,
+      onRemove: () => setSkills({ citationStyle: null }),
+    });
+  }
+  if (skills.documentClass) {
+    chips.push({
+      key: "class",
+      label: skills.documentClass.charAt(0).toUpperCase() + skills.documentClass.slice(1),
+      icon: <FileType className="h-3 w-3" />,
+      onRemove: () => setSkills({ documentClass: null }),
+    });
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {chips.map((chip) => (
+        <span
+          key={chip.key}
+          className="inline-flex items-center gap-1 rounded-full border border-[#c5d3c7] bg-[#eef3ee] px-2 py-0.5 text-[11px] font-medium text-[#1c4f2d]"
+        >
+          {chip.icon}
+          {chip.label}
+          <button
+            type="button"
+            onClick={chip.onRemove}
+            aria-label={`Remove ${chip.label}`}
+            title={`Remove ${chip.label}`}
+            className="ml-0.5 rounded-full p-0.5 transition hover:bg-[#d5e0d6]"
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ── Main Page ────────────────────────────────────────── */
 export default function HomePage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -61,6 +478,7 @@ export default function HomePage() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   const createDocument = useDocumentsStore((s) => s.createDocument);
+  const deleteDocument = useDocumentsStore((s) => s.deleteDocument);
   const listDocuments = useDocumentsStore((s) => s.listDocuments);
 
   useEffect(() => {
@@ -75,7 +493,7 @@ export default function HomePage() {
     return documents.filter((doc) => doc.title.toLowerCase().includes(q));
   }, [documents, query]);
 
-  function createAndOpenDocument(seed?: string) {
+  function createAndOpenDocument(seed?: string, options?: { autorun?: boolean }) {
     if (isCreating) return;
     setIsCreating(true);
 
@@ -86,12 +504,20 @@ export default function HomePage() {
       : fallbackTitle;
 
     const id = createDocument(title);
-    router.push(`/editor/${id}`);
+    if (options?.autorun && base) {
+      const params = new URLSearchParams({
+        autorun: "1",
+        prompt: base,
+      });
+      router.push(`/editor/${id}?${params.toString()}`);
+    } else {
+      router.push(`/editor/${id}`);
+    }
     setIsCreating(false);
   }
 
   function handleSubmit() {
-    createAndOpenDocument();
+    createAndOpenDocument(undefined, { autorun: true });
   }
 
   return (
@@ -136,20 +562,30 @@ export default function HomePage() {
                 <p className="px-1 py-6 text-sm text-slate-500">No matching drafts</p>
               ) : (
                 filteredDocs.slice(0, 10).map((doc) => (
-                  <button
-                    key={doc.id}
-                    onClick={() => router.push(`/editor/${doc.id}`)}
-                    className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition hover:bg-[#eaede9]"
-                  >
-                    <FileText className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{doc.title}</span>
-                      <span className="flex items-center gap-1 text-xs text-slate-500">
-                        <Clock3 className="h-3 w-3" />
-                        {formatRelativeDate(doc.updatedAt)}
+                  <div key={doc.id} className="group relative">
+                    <button
+                      onClick={() => router.push(`/editor/${doc.id}`)}
+                      className="flex w-full items-start gap-2 rounded-md px-2 py-2 pr-8 text-left transition hover:bg-[#eaede9]"
+                    >
+                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{doc.title}</span>
+                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                          <Clock3 className="h-3 w-3" />
+                          {formatRelativeDate(doc.updatedAt)}
+                        </span>
                       </span>
-                    </span>
-                  </button>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteDocument(doc.id)}
+                      aria-label={`Delete ${doc.title}`}
+                      title="Delete draft"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 opacity-0 transition hover:bg-[#e3e8e3] hover:text-slate-700 group-hover:opacity-100"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 ))
               )}
             </div>
@@ -170,7 +606,7 @@ export default function HomePage() {
         <main className="flex flex-1 items-center justify-center p-6 md:p-10">
           <div className="w-full max-w-3xl">
             <h1 className={`${displayFont.className} mb-5 text-center text-4xl leading-tight text-slate-800 md:text-6xl`}>
-              What will you publish today?
+              What will you write today?
             </h1>
 
             <p className="mx-auto mb-8 max-w-2xl text-center text-sm text-slate-600 md:text-base">
@@ -191,19 +627,31 @@ export default function HomePage() {
                   className="w-full resize-none rounded-xl border border-[#d7dcd7] bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-[#6f8c75]"
                 />
 
+                {/* Active skill chips */}
+                {isHydrated ? <SkillChips /> : null}
+
                 <div className="mt-3 flex items-center justify-between gap-3">
-                  <button
-                    type="button"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d3d8d3] bg-white text-slate-500"
-                    aria-label="Add attachment"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
+                  {isHydrated ? (
+                    <SkillsPopover />
+                  ) : (
+                    <button
+                      type="button"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#d3d8d3] bg-white text-slate-300"
+                      aria-label="Add enhancements"
+                      disabled
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  )}
 
                   <div className="flex items-center gap-3">
-                    <span className="rounded-full border border-[#d3d9d3] bg-white px-3 py-1 text-xs font-semibold text-slate-600">
-                      Gemini 2.5 / 3.0
-                    </span>
+                    {isHydrated ? (
+                      <ModelSelector />
+                    ) : (
+                      <span className="rounded-full border border-[#d3d9d3] bg-white px-3 py-1 text-xs font-semibold text-slate-400">
+                        Loading model...
+                      </span>
+                    )}
                     <button
                       onClick={handleSubmit}
                       disabled={isCreating}

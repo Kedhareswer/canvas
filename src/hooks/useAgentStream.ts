@@ -5,7 +5,7 @@ import { StreamChunk } from "@/types/chat";
 import { useDocumentStore } from "@/store/documentStore";
 import { useChatStore } from "@/store/chatStore";
 import { useUIStore } from "@/store/uiStore";
-import { useSettingsStore } from "@/store/settingsStore";
+import { useSettingsStore, PromptAgentName, AgentModelConfig } from "@/store/settingsStore";
 import { AgentName } from "@/types/agent";
 
 export function useAgentStream() {
@@ -32,10 +32,54 @@ export function useAgentStream() {
       const {
         googleApiKey,
         exaApiKey,
+        groqApiKey,
         customPrompts,
         agentModelConfigs,
         maxHops,
+        quickProvider,
+        quickModel,
+        landingSkills,
       } = useSettingsStore.getState();
+
+      /* ── Apply quickModel as fallback for agents without per-agent config ── */
+      const ALL_AGENTS: PromptAgentName[] = ["router", "writer", "reviewer", "formatter", "research", "aggregator"];
+      const effectiveConfigs: Partial<Record<PromptAgentName, AgentModelConfig>> = {};
+      for (const agent of ALL_AGENTS) {
+        effectiveConfigs[agent] = agentModelConfigs[agent] ?? {
+          provider: quickProvider,
+          model: quickModel,
+          temperature: agent === "router" ? 0 : 0.7,
+        };
+      }
+
+      /* ── Apply landing skills ── */
+      const effectiveMaxHops = landingSkills.deepReview ? Math.max(maxHops, 4) : maxHops;
+
+      // Build skill-aware forced agents
+      const effectiveForcedAgents = [...forcedAgents];
+      if (landingSkills.webResearch && !effectiveForcedAgents.includes("research")) {
+        effectiveForcedAgents.push("research");
+      }
+
+      // Build skill-aware custom prompts
+      const effectivePrompts = { ...customPrompts };
+      const skillInstructions: string[] = [];
+      if (landingSkills.citationStyle) {
+        skillInstructions.push(
+          `Use ${landingSkills.citationStyle.toUpperCase()} citation style throughout the document.`
+        );
+      }
+      if (landingSkills.documentClass) {
+        skillInstructions.push(
+          `Use \\documentclass{${landingSkills.documentClass}} as the LaTeX document class.`
+        );
+      }
+      if (skillInstructions.length > 0) {
+        const prefix = skillInstructions.join(" ");
+        effectivePrompts.writer = effectivePrompts.writer
+          ? `${prefix}\n\n${effectivePrompts.writer}`
+          : prefix;
+      }
 
       addUserMessage(userInstruction);
       setIsStreaming(true);
@@ -47,11 +91,12 @@ export function useAgentStream() {
         };
         if (googleApiKey) headers["X-API-Key"] = googleApiKey;
         if (exaApiKey) headers["X-Exa-Key"] = exaApiKey;
-        if (Object.keys(customPrompts).length > 0) {
-          headers["X-Custom-Prompts"] = btoa(JSON.stringify(customPrompts));
+        if (groqApiKey) headers["X-Groq-Key"] = groqApiKey;
+        if (Object.keys(effectivePrompts).length > 0) {
+          headers["X-Custom-Prompts"] = btoa(JSON.stringify(effectivePrompts));
         }
-        if (Object.keys(agentModelConfigs).length > 0) {
-          headers["X-Model-Configs"] = btoa(JSON.stringify(agentModelConfigs));
+        if (Object.keys(effectiveConfigs).length > 0) {
+          headers["X-Model-Configs"] = btoa(JSON.stringify(effectiveConfigs));
         }
 
         const response = await fetch("/api/agent", {
@@ -60,8 +105,8 @@ export function useAgentStream() {
           body: JSON.stringify({
             latexDocument,
             userInstruction,
-            forcedAgents,
-            maxHops,
+            forcedAgents: effectiveForcedAgents,
+            maxHops: effectiveMaxHops,
           }),
           signal: abortController.signal,
         });

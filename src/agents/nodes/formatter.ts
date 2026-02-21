@@ -1,9 +1,9 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { LaTeXGraphState } from "../state";
-import { createGemini } from "@/lib/gemini";
+import { createLLM } from "@/lib/llm";
 import { FORMATTER_SYSTEM_PROMPT } from "../prompts/formatter";
 import { AgentOutput } from "@/types/agent";
-import { GeminiModel } from "@/store/settingsStore";
+import { AgentModelConfig } from "@/store/settingsStore";
 
 export async function formatterAgent(
   state: LaTeXGraphState,
@@ -11,14 +11,17 @@ export async function formatterAgent(
 ): Promise<Partial<LaTeXGraphState>> {
   const cfg = config?.configurable ?? {};
   const customPrompts = (cfg.customPrompts ?? {}) as Record<string, string>;
-  const modelConfigs = (cfg.modelConfigs ?? {}) as Record<string, { model: GeminiModel; temperature: number }>;
+  const modelConfigs = (cfg.modelConfigs ?? {}) as Partial<Record<string, AgentModelConfig>>;
   const apiKey = cfg.googleApiKey as string | undefined;
+  const groqApiKey = cfg.groqApiKey as string | undefined;
 
   const agentCfg = modelConfigs["formatter"];
-  const llm = createGemini({
+  const llm = createLLM({
+    provider: agentCfg?.provider ?? "gemini",
     temperature: agentCfg?.temperature ?? 0.3,
     model: agentCfg?.model,
     apiKey,
+    groqApiKey,
   });
 
   const systemPrompt = customPrompts["formatter"] ?? FORMATTER_SYSTEM_PROMPT;

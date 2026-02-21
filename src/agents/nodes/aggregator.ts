@@ -1,7 +1,7 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { LaTeXGraphState } from "../state";
-import { createGemini } from "@/lib/gemini";
-import { GeminiModel } from "@/store/settingsStore";
+import { createLLM } from "@/lib/llm";
+import { AgentModelConfig } from "@/store/settingsStore";
 
 export const AGGREGATOR_PROMPT = `You are a helpful assistant. Summarize what the AI agents did to the user's LaTeX document in 2-3 sentences. Be concise and friendly. If there are reviewer suggestions, briefly mention the most important ones.
 
@@ -9,7 +9,7 @@ On the VERY LAST LINE of your response (after your summary), output exactly this
 {"continueReasoning": false}
 
 Set continueReasoning to true ONLY if ANY of these conditions are true:
-- Research found citations but the writer has not yet incorporated \cite{} commands into the narrative
+- Research found citations but the writer has not yet incorporated \\cite{} commands into the narrative
 - Reviewer found issues but the writer has not yet applied the fixes
 - New sections were created that reference missing content
 
@@ -23,8 +23,9 @@ export async function aggregatorNode(
 
   const cfg = config?.configurable ?? {};
   const customPrompts = (cfg.customPrompts ?? {}) as Record<string, string>;
-  const modelConfigs = (cfg.modelConfigs ?? {}) as Record<string, { model: GeminiModel; temperature: number }>;
+  const modelConfigs = (cfg.modelConfigs ?? {}) as Partial<Record<string, AgentModelConfig>>;
   const apiKey = cfg.googleApiKey as string | undefined;
+  const groqApiKey = cfg.groqApiKey as string | undefined;
 
   const agentCfg = modelConfigs["aggregator"];
 
@@ -41,12 +42,12 @@ export async function aggregatorNode(
 
   // Append bibliography from research if not already present
   if (outputs.research?.updatedLatex && outputs.research.citations?.length) {
-    const hasBib = finalLatex.includes("\begin{thebibliography}");
-    if (!hasBib && outputs.research.updatedLatex.includes("\begin{thebibliography}")) {
-      const endDocIdx = finalLatex.lastIndexOf("\end{document}");
+    const hasBib = finalLatex.includes("\\begin{thebibliography}");
+    if (!hasBib && outputs.research.updatedLatex.includes("\\begin{thebibliography}")) {
+      const endDocIdx = finalLatex.lastIndexOf("\\end{document}");
       if (endDocIdx !== -1) {
         const bibSection = outputs.research.updatedLatex.match(
-          /\begin\{thebibliography\}[\s\S]*?\end\{thebibliography\}/
+          /\\begin\{thebibliography\}[\s\S]*?\\end\{thebibliography\}/
         );
         if (bibSection) {
           finalLatex =
@@ -65,10 +66,12 @@ export async function aggregatorNode(
   let continueReasoning = false;
 
   try {
-    const llm = createGemini({
+    const llm = createLLM({
+      provider: agentCfg?.provider ?? "gemini",
       temperature: agentCfg?.temperature ?? 0.5,
       model: agentCfg?.model,
       apiKey,
+      groqApiKey,
     });
 
     const summaryParts: string[] = [];

@@ -1,3 +1,8 @@
+export interface ListItem {
+  content: ASTNode[];
+  nestedList?: ASTNode;
+}
+
 export type ASTNode =
   | { type: "text"; content: string }
   | { type: "section"; level: number; title: string }
@@ -5,7 +10,8 @@ export type ASTNode =
   | { type: "math-display"; content: string }
   | { type: "table"; content: string }
   | { type: "figure"; src: string; caption: string; label: string }
-  | { type: "list"; ordered: boolean; items: string[] }
+  | { type: "list"; ordered: boolean; items: ListItem[] }
+  | { type: "description-list"; items: { term: string; description: ASTNode[] }[] }
   | { type: "bibliography"; items: { key: string; text: string }[] }
   | { type: "title"; title: string; author: string; date: string }
   | { type: "abstract"; content: string }
@@ -14,24 +20,70 @@ export type ASTNode =
   | { type: "italic"; content: string }
   | { type: "code"; content: string }
   | { type: "href"; url: string; text: string }
-  | { type: "color"; color: string; content: string };
+  | { type: "color"; color: string; content: string }
+  | { type: "cite"; keys: string[] }
+  | { type: "footnote"; content: string };
+
+/* ── Brace-depth utilities ─────────────────────────── */
+
+/** Find the matching closing brace, handling nested braces. Returns content inside braces and chars consumed (including the braces). */
+function matchBracedArg(input: string): { content: string; length: number } | null {
+  if (input[0] !== "{") return null;
+  let depth = 0;
+  for (let i = 0; i < input.length; i++) {
+    if (input[i] === "{") depth++;
+    else if (input[i] === "}") {
+      depth--;
+      if (depth === 0) return { content: input.slice(1, i), length: i + 1 };
+    }
+  }
+  return null;
+}
+
+/** Find matching \end{envName} handling nested \begin/\end of any environment. Returns content inside and total consumed length including \begin{} and \end{}. */
+function matchEnvironment(input: string, envName: string): { content: string; length: number } | null {
+  const openTag = `\\begin{${envName}}`;
+  if (!input.startsWith(openTag)) return null;
+
+  let depth = 0;
+  let i = 0;
+  while (i < input.length) {
+    if (input.startsWith("\\begin{", i)) {
+      depth++;
+      const endBrace = input.indexOf("}", i + 7);
+      i = endBrace !== -1 ? endBrace + 1 : i + 7;
+    } else if (input.startsWith("\\end{", i)) {
+      const endBrace = input.indexOf("}", i + 5);
+      const closeName = endBrace !== -1 ? input.slice(i + 5, endBrace) : "";
+      depth--;
+      if (depth === 0 && closeName === envName) {
+        const totalLen = endBrace + 1;
+        const contentStart = openTag.length;
+        return { content: input.slice(contentStart, i), length: totalLen };
+      }
+      i = endBrace !== -1 ? endBrace + 1 : i + 5;
+    } else {
+      i++;
+    }
+  }
+  return null;
+}
+
+/* ── Main parser ─────────────────────────────────── */
 
 export function parseLatex(source: string): ASTNode[] {
-  // Extract body between \begin{document} and \end{document}
   const docMatch = source.match(
     /\\begin\{document\}([\s\S]*?)\\end\{document\}/
   );
   const preamble = source.split("\\begin{document}")[0] || "";
   const body = docMatch ? docMatch[1] : source;
 
-  // Extract title/author/date from preamble
   const titleMatch = preamble.match(/\\title\{([^}]*)\}/);
   const authorMatch = preamble.match(/\\author\{([^}]*)\}/);
   const dateMatch = preamble.match(/\\date\{([^}]*)\}/);
 
   const nodes: ASTNode[] = [];
 
-  // Check for \maketitle in body
   if (body.includes("\\maketitle") && titleMatch) {
     nodes.push({
       type: "title",
@@ -41,12 +93,122 @@ export function parseLatex(source: string): ASTNode[] {
     });
   }
 
-  // Tokenize remaining body (remove \maketitle)
   const cleanBody = body.replace(/\\maketitle/, "").replace(/\\tableofcontents/, "");
   tokenize(cleanBody, nodes);
 
   return nodes;
 }
+
+/* ── List parsing ─────────────────────────────────── */
+
+function parseListItems(content: string, ordered: boolean): ASTNode {
+  // Split on \item at the top level (not inside nested environments)
+  const items: ListItem[] = [];
+  const parts = splitOnItem(content);
+
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+
+    // Check if this item contains a nested list environment
+    const itemNodes: ASTNode[] = [];
+    let nestedList: ASTNode | undefined;
+    let remaining = trimmed;
+
+    // Extract nested lists from the item content
+    while (remaining.length > 0) {
+      const nestedItemize = matchEnvironment(remaining, "itemize");
+      const nestedEnum = matchEnvironment(remaining, "enumerate");
+      const nestedDesc = matchEnvironment(remaining, "description");
+
+      const nested = nestedItemize || nestedEnum || nestedDesc;
+      if (nested) {
+        const beforeNested = remaining.slice(0, remaining.indexOf("\\begin{"));
+        if (beforeNested.trim()) {
+          parseInlineText(beforeNested.trim(), itemNodes);
+        }
+
+        if (nestedItemize && remaining.startsWith("\\begin{itemize}")) {
+          nestedList = parseListItems(nested.content, false);
+        } else if (nestedEnum && remaining.startsWith("\\begin{enumerate}")) {
+          nestedList = parseListItems(nested.content, true);
+        } else if (nestedDesc && remaining.startsWith("\\begin{description}")) {
+          nestedList = parseDescriptionList(nested.content);
+        }
+
+        remaining = remaining.slice(nested.length).trim();
+      } else {
+        parseInlineText(remaining, itemNodes);
+        break;
+      }
+    }
+
+    items.push({ content: itemNodes, nestedList });
+  }
+
+  return { type: "list", ordered, items };
+}
+
+function parseDescriptionList(content: string): ASTNode {
+  const items: { term: string; description: ASTNode[] }[] = [];
+  // Split on \item[...] for description lists
+  const parts = content.split(/\\item\s*\[/);
+
+  for (let i = 1; i < parts.length; i++) {
+    const bracketEnd = parts[i].indexOf("]");
+    if (bracketEnd === -1) continue;
+    const term = parts[i].slice(0, bracketEnd);
+    const desc = parts[i].slice(bracketEnd + 1).trim();
+    const descNodes: ASTNode[] = [];
+    if (desc) parseInlineText(desc, descNodes);
+    items.push({ term, description: descNodes });
+  }
+
+  return { type: "description-list", items };
+}
+
+function splitOnItem(content: string): string[] {
+  // Split content on \item that are NOT inside nested \begin{...}\end{...}
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  let i = 0;
+
+  while (i < content.length) {
+    if (content.startsWith("\\begin{", i)) {
+      depth++;
+      const endBrace = content.indexOf("}", i + 7);
+      const chunk = content.slice(i, endBrace !== -1 ? endBrace + 1 : i + 7);
+      current += chunk;
+      i += chunk.length;
+    } else if (content.startsWith("\\end{", i)) {
+      depth--;
+      const endBrace = content.indexOf("}", i + 5);
+      const chunk = content.slice(i, endBrace !== -1 ? endBrace + 1 : i + 5);
+      current += chunk;
+      i += chunk.length;
+    } else if (depth === 0 && content.startsWith("\\item", i)) {
+      if (current.trim()) parts.push(current);
+      current = "";
+      // Skip \item and optional [...] argument
+      i += 5;
+      // Skip whitespace
+      while (i < content.length && content[i] === " ") i++;
+      // Skip optional [term] for description lists
+      if (content[i] === "[") {
+        // Don't skip — description lists handle this differently
+        // For itemize/enumerate, just skip the \item keyword
+      }
+    } else {
+      current += content[i];
+      i++;
+    }
+  }
+  if (current.trim()) parts.push(current);
+  return parts;
+}
+
+/* ── Tokenizer ────────────────────────────────────── */
 
 function tokenize(input: string, nodes: ASTNode[]) {
   let remaining = input;
@@ -90,110 +252,127 @@ function tokenize(input: string, nodes: ASTNode[]) {
     }
 
     // Abstract
-    const abstractMatch = remaining.match(
-      /^\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/
-    );
+    const abstractMatch = matchEnvironment(remaining, "abstract");
     if (abstractMatch) {
-      nodes.push({ type: "abstract", content: abstractMatch[1].trim() });
-      remaining = remaining.slice(abstractMatch[0].length);
+      nodes.push({ type: "abstract", content: abstractMatch.content.trim() });
+      remaining = remaining.slice(abstractMatch.length);
       continue;
     }
 
     // Sections
     const sectionMatch = remaining.match(
-      /^\\(chapter|section|subsection|subsubsection)\*?\{([^}]*)\}/
+      /^\\(chapter|section|subsection|subsubsection)\*?\{/
     );
     if (sectionMatch) {
-      const levels: Record<string, number> = {
-        chapter: 0,
-        section: 1,
-        subsection: 2,
-        subsubsection: 3,
-      };
-      nodes.push({
-        type: "section",
-        level: levels[sectionMatch[1]],
-        title: sectionMatch[2],
-      });
-      remaining = remaining.slice(sectionMatch[0].length);
-      continue;
+      const afterCmd = remaining.slice(sectionMatch[0].length - 1); // keep the {
+      const braced = matchBracedArg(afterCmd);
+      if (braced) {
+        const levels: Record<string, number> = {
+          chapter: 0,
+          section: 1,
+          subsection: 2,
+          subsubsection: 3,
+        };
+        nodes.push({
+          type: "section",
+          level: levels[sectionMatch[1]],
+          title: braced.content,
+        });
+        remaining = remaining.slice(sectionMatch[0].length - 1 + braced.length);
+        continue;
+      }
     }
 
-    // Table environment
-    const tableMatch = remaining.match(
-      /^\\begin\{(table|tabular)\}(\[[^\]]*\])?\{?[^}]*\}?([\s\S]*?)\\end\{\1\}/
-    );
-    if (tableMatch) {
-      nodes.push({ type: "table", content: tableMatch[0] });
-      remaining = remaining.slice(tableMatch[0].length);
-      continue;
+    // Table environment (use brace-depth-aware matching)
+    if (remaining.startsWith("\\begin{table}") || remaining.startsWith("\\begin{tabular}")) {
+      const envName = remaining.startsWith("\\begin{table}") ? "table" : "tabular";
+      const tableEnv = matchEnvironment(remaining, envName);
+      if (tableEnv) {
+        nodes.push({ type: "table", content: remaining.slice(0, tableEnv.length) });
+        remaining = remaining.slice(tableEnv.length);
+        continue;
+      }
     }
 
     // Figure environment
-    const figureMatch = remaining.match(
-      /^\\begin\{figure\}(\[[^\]]*\])?([\s\S]*?)\\end\{figure\}/
-    );
-    if (figureMatch) {
-      const inner = figureMatch[2];
-      const srcMatch = inner.match(/\\includegraphics(\[[^\]]*\])?\{([^}]*)\}/);
-      const capMatch = inner.match(/\\caption\{([^}]*)\}/);
-      const labelMatch = inner.match(/\\label\{([^}]*)\}/);
-      nodes.push({
-        type: "figure",
-        src: srcMatch ? srcMatch[2] : "",
-        caption: capMatch ? capMatch[1] : "",
-        label: labelMatch ? labelMatch[1] : "",
-      });
-      remaining = remaining.slice(figureMatch[0].length);
-      continue;
+    if (remaining.startsWith("\\begin{figure}")) {
+      const figEnv = matchEnvironment(remaining, "figure");
+      if (figEnv) {
+        const inner = figEnv.content;
+        const srcMatch = inner.match(/\\includegraphics(\[[^\]]*\])?\{([^}]*)\}/);
+        // Use brace-depth for caption
+        const capIdx = inner.indexOf("\\caption{");
+        let caption = "";
+        if (capIdx !== -1) {
+          const capBraced = matchBracedArg(inner.slice(capIdx + 8));
+          if (capBraced) caption = capBraced.content;
+        }
+        const labelMatch = inner.match(/\\label\{([^}]*)\}/);
+        nodes.push({
+          type: "figure",
+          src: srcMatch ? srcMatch[2] : "",
+          caption,
+          label: labelMatch ? labelMatch[1] : "",
+        });
+        remaining = remaining.slice(figEnv.length);
+        continue;
+      }
     }
 
-    // List environments
-    const listMatch = remaining.match(
-      /^\\begin\{(itemize|enumerate)\}([\s\S]*?)\\end\{\1\}/
-    );
-    if (listMatch) {
-      const items = listMatch[2]
-        .split("\\item")
-        .slice(1)
-        .map((s) => s.trim());
-      nodes.push({
-        type: "list",
-        ordered: listMatch[1] === "enumerate",
-        items,
-      });
-      remaining = remaining.slice(listMatch[0].length);
-      continue;
+    // List environments (itemize, enumerate) — brace-depth-aware
+    if (remaining.startsWith("\\begin{itemize}") || remaining.startsWith("\\begin{enumerate}")) {
+      const envName = remaining.startsWith("\\begin{itemize}") ? "itemize" : "enumerate";
+      const listEnv = matchEnvironment(remaining, envName);
+      if (listEnv) {
+        const listNode = parseListItems(listEnv.content, envName === "enumerate");
+        nodes.push(listNode);
+        remaining = remaining.slice(listEnv.length);
+        continue;
+      }
+    }
+
+    // Description list
+    if (remaining.startsWith("\\begin{description}")) {
+      const descEnv = matchEnvironment(remaining, "description");
+      if (descEnv) {
+        nodes.push(parseDescriptionList(descEnv.content));
+        remaining = remaining.slice(descEnv.length);
+        continue;
+      }
     }
 
     // Bibliography
-    const bibMatch = remaining.match(
-      /^\\begin\{thebibliography\}\{[^}]*\}([\s\S]*?)\\end\{thebibliography\}/
-    );
-    if (bibMatch) {
-      const bibItems = bibMatch[1]
-        .split("\\bibitem")
-        .slice(1)
-        .map((s) => {
-          const keyMatch = s.match(/^\{([^}]*)\}/);
-          return {
-            key: keyMatch ? keyMatch[1] : "",
-            text: keyMatch ? s.slice(keyMatch[0].length).trim() : s.trim(),
-          };
-        });
-      nodes.push({ type: "bibliography", items: bibItems });
-      remaining = remaining.slice(bibMatch[0].length);
-      continue;
+    if (remaining.startsWith("\\begin{thebibliography}")) {
+      const bibEnv = matchEnvironment(remaining, "thebibliography");
+      if (bibEnv) {
+        // Strip the {width} argument at the start
+        const bibContent = bibEnv.content.replace(/^\{[^}]*\}/, "");
+        const bibItems = bibContent
+          .split("\\bibitem")
+          .slice(1)
+          .map((s) => {
+            const keyMatch = s.match(/^\{([^}]*)\}/);
+            return {
+              key: keyMatch ? keyMatch[1] : "",
+              text: keyMatch ? s.slice(keyMatch[0].length).trim() : s.trim(),
+            };
+          });
+        nodes.push({ type: "bibliography", items: bibItems });
+        remaining = remaining.slice(bibEnv.length);
+        continue;
+      }
     }
 
-    // Unknown environment → raw
-    const envMatch = remaining.match(
-      /^\\begin\{([^}]+)\}([\s\S]*?)\\end\{\1\}/
-    );
-    if (envMatch) {
-      nodes.push({ type: "raw", content: envMatch[0] });
-      remaining = remaining.slice(envMatch[0].length);
-      continue;
+    // Unknown environment → raw (brace-depth-aware)
+    const unknownEnvMatch = remaining.match(/^\\begin\{([^}]+)\}/);
+    if (unknownEnvMatch) {
+      const envName = unknownEnvMatch[1];
+      const envResult = matchEnvironment(remaining, envName);
+      if (envResult) {
+        nodes.push({ type: "raw", content: remaining.slice(0, envResult.length) });
+        remaining = remaining.slice(envResult.length);
+        continue;
+      }
     }
 
     // Collect text until next command or environment
@@ -202,7 +381,6 @@ function tokenize(input: string, nodes: ASTNode[]) {
     );
     if (textMatch && textMatch[1].length > 0) {
       const text = textMatch[1];
-      // Process inline elements within text
       parseInlineText(text, nodes);
       remaining = remaining.slice(text.length);
       continue;
@@ -216,7 +394,7 @@ function tokenize(input: string, nodes: ASTNode[]) {
       continue;
     }
 
-    // If nothing matched, consume one character to avoid infinite loop
+    // Avoid infinite loop
     if (remaining.length > 0) {
       nodes.push({ type: "text", content: remaining[0] });
       remaining = remaining.slice(1);
@@ -224,8 +402,9 @@ function tokenize(input: string, nodes: ASTNode[]) {
   }
 }
 
+/* ── Inline text parser ──────────────────────────── */
+
 export function parseInlineText(text: string, nodes: ASTNode[]) {
-  // Split text on inline commands and math
   let remaining = text;
   let buffer = "";
 
@@ -239,58 +418,101 @@ export function parseInlineText(text: string, nodes: ASTNode[]) {
       continue;
     }
 
-    // \textbf{...}
-    const boldMatch = remaining.match(/^\\textbf\{([^}]*)\}/);
-    if (boldMatch) {
-      if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
-      nodes.push({ type: "bold", content: boldMatch[1] });
-      remaining = remaining.slice(boldMatch[0].length);
-      continue;
+    // \textbf{...} — brace-depth-aware
+    if (remaining.startsWith("\\textbf{")) {
+      const braced = matchBracedArg(remaining.slice(7));
+      if (braced) {
+        if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
+        nodes.push({ type: "bold", content: braced.content });
+        remaining = remaining.slice(7 + braced.length);
+        continue;
+      }
     }
 
-    // \textit{...}
-    const italicMatch = remaining.match(/^\\textit\{([^}]*)\}/);
-    if (italicMatch) {
-      if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
-      nodes.push({ type: "italic", content: italicMatch[1] });
-      remaining = remaining.slice(italicMatch[0].length);
-      continue;
+    // \textit{...} — brace-depth-aware
+    if (remaining.startsWith("\\textit{")) {
+      const braced = matchBracedArg(remaining.slice(7));
+      if (braced) {
+        if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
+        nodes.push({ type: "italic", content: braced.content });
+        remaining = remaining.slice(7 + braced.length);
+        continue;
+      }
     }
 
     // \emph{...}
-    const emphMatch = remaining.match(/^\\emph\{([^}]*)\}/);
-    if (emphMatch) {
-      if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
-      nodes.push({ type: "italic", content: emphMatch[1] });
-      remaining = remaining.slice(emphMatch[0].length);
-      continue;
+    if (remaining.startsWith("\\emph{")) {
+      const braced = matchBracedArg(remaining.slice(5));
+      if (braced) {
+        if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
+        nodes.push({ type: "italic", content: braced.content });
+        remaining = remaining.slice(5 + braced.length);
+        continue;
+      }
     }
 
     // \texttt{...}
-    const codeMatch = remaining.match(/^\\texttt\{([^}]*)\}/);
-    if (codeMatch) {
-      if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
-      nodes.push({ type: "code", content: codeMatch[1] });
-      remaining = remaining.slice(codeMatch[0].length);
-      continue;
+    if (remaining.startsWith("\\texttt{")) {
+      const braced = matchBracedArg(remaining.slice(7));
+      if (braced) {
+        if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
+        nodes.push({ type: "code", content: braced.content });
+        remaining = remaining.slice(7 + braced.length);
+        continue;
+      }
     }
 
     // \href{url}{text}
-    const hrefMatch = remaining.match(/^\\href\{([^}]*)\}\{([^}]*)\}/);
-    if (hrefMatch) {
-      if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
-      nodes.push({ type: "href", url: hrefMatch[1], text: hrefMatch[2] });
-      remaining = remaining.slice(hrefMatch[0].length);
-      continue;
+    if (remaining.startsWith("\\href{")) {
+      const urlBraced = matchBracedArg(remaining.slice(5));
+      if (urlBraced) {
+        const afterUrl = remaining.slice(5 + urlBraced.length);
+        const textBraced = matchBracedArg(afterUrl);
+        if (textBraced) {
+          if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
+          nodes.push({ type: "href", url: urlBraced.content, text: textBraced.content });
+          remaining = remaining.slice(5 + urlBraced.length + textBraced.length);
+          continue;
+        }
+      }
     }
 
     // \textcolor{color}{text}
-    const colorMatch = remaining.match(/^\\textcolor\{([^}]*)\}\{([^}]*)\}/);
-    if (colorMatch) {
-      if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
-      nodes.push({ type: "color", color: colorMatch[1], content: colorMatch[2] });
-      remaining = remaining.slice(colorMatch[0].length);
-      continue;
+    if (remaining.startsWith("\\textcolor{")) {
+      const colorBraced = matchBracedArg(remaining.slice(10));
+      if (colorBraced) {
+        const afterColor = remaining.slice(10 + colorBraced.length);
+        const textBraced = matchBracedArg(afterColor);
+        if (textBraced) {
+          if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
+          nodes.push({ type: "color", color: colorBraced.content, content: textBraced.content });
+          remaining = remaining.slice(10 + colorBraced.length + textBraced.length);
+          continue;
+        }
+      }
+    }
+
+    // \footnote{...}
+    if (remaining.startsWith("\\footnote{")) {
+      const braced = matchBracedArg(remaining.slice(9));
+      if (braced) {
+        if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
+        nodes.push({ type: "footnote", content: braced.content });
+        remaining = remaining.slice(9 + braced.length);
+        continue;
+      }
+    }
+
+    // \cite{key1,key2}
+    if (remaining.startsWith("\\cite{")) {
+      const braced = matchBracedArg(remaining.slice(5));
+      if (braced) {
+        if (buffer) { nodes.push({ type: "text", content: buffer }); buffer = ""; }
+        const keys = braced.content.split(",").map((k) => k.trim());
+        nodes.push({ type: "cite", keys });
+        remaining = remaining.slice(5 + braced.length);
+        continue;
+      }
     }
 
     // LaTeX special chars
@@ -310,19 +532,26 @@ export function parseInlineText(text: string, nodes: ASTNode[]) {
       continue;
     }
 
-    // Skip unknown commands like \label{...}, \cite{...}
-    const unknownCmd = remaining.match(/^\\([a-zA-Z]+)\{([^}]*)\}/);
-    if (unknownCmd) {
-      // Render common ones as text
-      if (unknownCmd[1] === "cite") {
-        buffer += `[${unknownCmd[2]}]`;
-      } else if (unknownCmd[1] === "ref" || unknownCmd[1] === "label") {
-        buffer += `(${unknownCmd[2]})`;
-      } else {
-        buffer += unknownCmd[2];
+    // \ref{...}, \label{...} — render as text
+    if (remaining.startsWith("\\ref{") || remaining.startsWith("\\label{")) {
+      const cmdLen = remaining.startsWith("\\ref{") ? 4 : 6;
+      const braced = matchBracedArg(remaining.slice(cmdLen));
+      if (braced) {
+        buffer += `(${braced.content})`;
+        remaining = remaining.slice(cmdLen + braced.length);
+        continue;
       }
-      remaining = remaining.slice(unknownCmd[0].length);
-      continue;
+    }
+
+    // Other unknown commands with braced argument
+    const unknownCmd = remaining.match(/^\\([a-zA-Z]+)\{/);
+    if (unknownCmd) {
+      const braced = matchBracedArg(remaining.slice(unknownCmd[0].length - 1));
+      if (braced) {
+        buffer += braced.content;
+        remaining = remaining.slice(unknownCmd[0].length - 1 + braced.length);
+        continue;
+      }
     }
 
     // Skip bare commands like \noindent

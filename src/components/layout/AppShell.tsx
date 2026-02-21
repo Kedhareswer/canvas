@@ -6,12 +6,12 @@ import { EditorPanel } from "@/components/editor/EditorPanel";
 
 export function AppShell() {
   return (
-    <PanelGroup direction="horizontal" className="flex-1">
-      <Panel defaultSize={35} minSize={25} maxSize={50}>
+    <PanelGroup direction="horizontal" className="h-full min-h-0 w-full overflow-hidden">
+      <Panel defaultSize={35} minSize={25} maxSize={50} className="min-h-0 overflow-hidden">
         <ChatPanel />
       </Panel>
       <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary/20 transition-colors" />
-      <Panel defaultSize={65} minSize={40}>
+      <Panel defaultSize={65} minSize={40} className="min-h-0 overflow-hidden">
         <EditorPanel />
       </Panel>
     </PanelGroup>

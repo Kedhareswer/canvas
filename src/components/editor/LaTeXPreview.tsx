@@ -16,11 +16,13 @@ export function LaTeXPreview() {
   }
 
   return (
-    <div className="h-full overflow-y-auto p-8">
-      <div
-        className="latex-document"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+    <div className="h-full overflow-y-auto">
+      <div className="p-8 pb-16">
+        <div
+          className="latex-document"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
     </div>
   );
 }

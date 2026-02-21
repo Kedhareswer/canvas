@@ -1,8 +1,8 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { LaTeXGraphState } from "../state";
-import { createGemini } from "@/lib/gemini";
+import { createLLM } from "@/lib/llm";
 import { AgentName } from "@/types/agent";
-import { GeminiModel } from "@/store/settingsStore";
+import { AgentModelConfig } from "@/store/settingsStore";
 
 export const ROUTER_PROMPT = `You are a router that decides which AI agents should handle a user's request about a LaTeX document.
 
@@ -38,14 +38,17 @@ export async function routerNode(
 
   const cfg = config?.configurable ?? {};
   const customPrompts = (cfg.customPrompts ?? {}) as Record<string, string>;
-  const modelConfigs = (cfg.modelConfigs ?? {}) as Record<string, { model: GeminiModel; temperature: number }>;
+  const modelConfigs = (cfg.modelConfigs ?? {}) as Partial<Record<string, AgentModelConfig>>;
   const apiKey = cfg.googleApiKey as string | undefined;
+  const groqApiKey = cfg.groqApiKey as string | undefined;
 
   const agentCfg = modelConfigs["router"];
-  const llm = createGemini({
+  const llm = createLLM({
+    provider: agentCfg?.provider ?? "gemini",
     temperature: agentCfg?.temperature ?? 0,
     model: agentCfg?.model,
     apiKey,
+    groqApiKey,
   });
 
   const systemPrompt = customPrompts["router"] ?? ROUTER_PROMPT;

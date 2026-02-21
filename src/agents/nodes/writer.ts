@@ -1,9 +1,9 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { LaTeXGraphState } from "../state";
-import { createGemini } from "@/lib/gemini";
+import { createLLM } from "@/lib/llm";
 import { WRITER_SYSTEM_PROMPT } from "../prompts/writer";
 import { AgentOutput } from "@/types/agent";
-import { GeminiModel } from "@/store/settingsStore";
+import { AgentModelConfig } from "@/store/settingsStore";
 
 export async function writerAgent(
   state: LaTeXGraphState,
@@ -11,14 +11,17 @@ export async function writerAgent(
 ): Promise<Partial<LaTeXGraphState>> {
   const cfg = config?.configurable ?? {};
   const customPrompts = (cfg.customPrompts ?? {}) as Record<string, string>;
-  const modelConfigs = (cfg.modelConfigs ?? {}) as Record<string, { model: GeminiModel; temperature: number }>;
+  const modelConfigs = (cfg.modelConfigs ?? {}) as Partial<Record<string, AgentModelConfig>>;
   const apiKey = cfg.googleApiKey as string | undefined;
+  const groqApiKey = cfg.groqApiKey as string | undefined;
 
   const agentCfg = modelConfigs["writer"];
-  const llm = createGemini({
+  const llm = createLLM({
+    provider: agentCfg?.provider ?? "gemini",
     temperature: agentCfg?.temperature ?? 0.7,
     model: agentCfg?.model,
     apiKey,
+    groqApiKey,
   });
 
   const systemPrompt = customPrompts["writer"] ?? WRITER_SYSTEM_PROMPT;

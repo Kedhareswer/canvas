@@ -1,9 +1,9 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { LaTeXGraphState } from "../state";
-import { createGemini } from "@/lib/gemini";
+import { createLLM } from "@/lib/llm";
 import { RESEARCH_SYSTEM_PROMPT } from "../prompts/research";
 import { AgentOutput, CitationResult } from "@/types/agent";
-import { GeminiModel } from "@/store/settingsStore";
+import { AgentModelConfig } from "@/store/settingsStore";
 
 export async function researchAgent(
   state: LaTeXGraphState,
@@ -11,14 +11,17 @@ export async function researchAgent(
 ): Promise<Partial<LaTeXGraphState>> {
   const cfg = config?.configurable ?? {};
   const customPrompts = (cfg.customPrompts ?? {}) as Record<string, string>;
-  const modelConfigs = (cfg.modelConfigs ?? {}) as Record<string, { model: GeminiModel; temperature: number }>;
+  const modelConfigs = (cfg.modelConfigs ?? {}) as Partial<Record<string, AgentModelConfig>>;
   const apiKey = cfg.googleApiKey as string | undefined;
+  const groqApiKey = cfg.groqApiKey as string | undefined;
 
   const agentCfg = modelConfigs["research"];
-  const llm = createGemini({
+  const llm = createLLM({
+    provider: agentCfg?.provider ?? "gemini",
     temperature: agentCfg?.temperature ?? 0.5,
     model: agentCfg?.model,
     apiKey,
+    groqApiKey,
   });
 
   const systemPrompt = customPrompts["research"] ?? RESEARCH_SYSTEM_PROMPT;
