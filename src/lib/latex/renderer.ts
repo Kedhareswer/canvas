@@ -2,39 +2,40 @@ import { ASTNode, parseInlineText } from "./parser";
 import { renderMathToString } from "./katex";
 
 export function renderAST(nodes: ASTNode[]): string {
-  return nodes.map((node, i) => renderNode(node, i)).join("");
+  const referenceIndexByKey = buildReferenceIndex(nodes);
+  return nodes.map((node, i) => renderNode(node, i, referenceIndexByKey)).join("");
 }
 
 /** Parse inline LaTeX commands and render to HTML (no <p> wrappers) */
-function renderInlineContent(raw: string): string {
+function renderInlineContent(raw: string, referenceIndexByKey: Map<string, number>): string {
   const nodes: ASTNode[] = [];
   parseInlineText(raw, nodes);
   return nodes
     .map((node, i) => {
       if (node.type === "text") return escapeHtml(node.content);
-      return renderNode(node, i);
+      return renderNode(node, i, referenceIndexByKey);
     })
     .join("");
 }
 
 /** Render an array of already-parsed AST nodes to HTML */
-function renderNodes(nodes: ASTNode[]): string {
+function renderNodes(nodes: ASTNode[], referenceIndexByKey: Map<string, number>): string {
   return nodes
     .map((node, i) => {
       if (node.type === "text") return escapeHtml(node.content);
-      return renderNode(node, i);
+      return renderNode(node, i, referenceIndexByKey);
     })
     .join("");
 }
 
-function renderNode(node: ASTNode, key: number): string {
+function renderNode(node: ASTNode, key: number, referenceIndexByKey: Map<string, number>): string {
   switch (node.type) {
     case "title":
       return `
         <div class="latex-title" key="${key}">
-          <h1 class="latex-doc-title">${renderInlineContent(node.title)}</h1>
-          ${node.author ? `<p class="latex-author">${renderInlineContent(node.author)}</p>` : ""}
-          ${node.date ? `<p class="latex-date">${renderInlineContent(node.date)}</p>` : ""}
+          <h1 class="latex-doc-title">${renderInlineContent(node.title, referenceIndexByKey)}</h1>
+          ${node.author ? `<p class="latex-author">${renderInlineContent(node.author, referenceIndexByKey)}</p>` : ""}
+          ${node.date ? `<p class="latex-date">${renderInlineContent(node.date, referenceIndexByKey)}</p>` : ""}
         </div>
       `;
 
@@ -42,18 +43,18 @@ function renderNode(node: ASTNode, key: number): string {
       return `
         <div class="latex-abstract" key="${key}">
           <h3 class="latex-abstract-title">Abstract</h3>
-          <p>${renderInlineContent(node.content)}</p>
+          <p>${renderInlineContent(node.content, referenceIndexByKey)}</p>
         </div>
       `;
 
     case "section": {
       const tags = ["h1", "h2", "h3", "h4"];
       const tag = tags[node.level] || "h4";
-      return `<${tag} class="latex-section latex-section-${node.level}" key="${key}">${renderInlineContent(node.title)}</${tag}>`;
+      return `<${tag} class="latex-section latex-section-${node.level}" key="${key}">${renderInlineContent(node.title, referenceIndexByKey)}</${tag}>`;
     }
 
     case "text":
-      return processTextContent(node.content, key);
+      return processTextContent(node.content, key, referenceIndexByKey);
 
     case "bold":
       return `<strong key="${key}">${escapeHtml(node.content)}</strong>`;
@@ -91,7 +92,7 @@ function renderNode(node: ASTNode, key: number): string {
       return `
         <figure class="latex-figure" key="${key}"${node.label ? ` id="${escapeAttr(node.label)}"` : ""}>
           ${imgHtml}
-          ${node.caption ? `<figcaption class="latex-caption">${renderInlineContent(node.caption)}</figcaption>` : ""}
+          ${node.caption ? `<figcaption class="latex-caption">${renderInlineContent(node.caption, referenceIndexByKey)}</figcaption>` : ""}
         </figure>
       `;
     }
@@ -100,8 +101,8 @@ function renderNode(node: ASTNode, key: number): string {
       const tag = node.ordered ? "ol" : "ul";
       const items = node.items
         .map((item, i) => {
-          const contentHtml = renderNodes(item.content);
-          const nestedHtml = item.nestedList ? renderNode(item.nestedList, i + 1000) : "";
+          const contentHtml = renderNodes(item.content, referenceIndexByKey);
+          const nestedHtml = item.nestedList ? renderNode(item.nestedList, i + 1000, referenceIndexByKey) : "";
           return `<li key="${i}">${contentHtml}${nestedHtml}</li>`;
         })
         .join("");
@@ -111,8 +112,8 @@ function renderNode(node: ASTNode, key: number): string {
     case "description-list": {
       const items = node.items
         .map((item, i) => {
-          const descHtml = renderNodes(item.description);
-          return `<dt key="dt-${i}">${renderInlineContent(item.term)}</dt><dd key="dd-${i}">${descHtml}</dd>`;
+          const descHtml = renderNodes(item.description, referenceIndexByKey);
+          return `<dt key="dt-${i}">${renderInlineContent(item.term, referenceIndexByKey)}</dt><dd key="dd-${i}">${descHtml}</dd>`;
         })
         .join("");
       return `<dl class="latex-description-list" key="${key}">${items}</dl>`;
@@ -120,7 +121,13 @@ function renderNode(node: ASTNode, key: number): string {
 
     case "cite": {
       const links = node.keys
-        .map((k) => `<a href="#ref-${escapeAttr(k)}" class="latex-cite">${escapeHtml(k)}</a>`)
+        .map((k) => {
+          const referenceIndex = referenceIndexByKey.get(k);
+          if (referenceIndex) {
+            return `<a href="#ref-idx-${referenceIndex}" class="latex-cite">${referenceIndex}</a>`;
+          }
+          return `<a href="#ref-${escapeAttr(k)}" class="latex-cite">${escapeHtml(k)}</a>`;
+        })
         .join(", ");
       return `<span class="latex-citations" key="${key}">[${links}]</span>`;
     }
@@ -133,7 +140,12 @@ function renderNode(node: ASTNode, key: number): string {
         <div class="latex-bibliography" key="${key}">
           <h2 class="latex-section latex-section-1">References</h2>
           <ol class="latex-references">
-            ${node.items.map((item, i) => `<li key="${i}" id="ref-${escapeAttr(item.key)}">${renderInlineContent(item.text)}</li>`).join("")}
+            ${node.items.map((item, i) => `
+              <li key="${i}" id="ref-idx-${i + 1}" data-ref-key="${escapeAttr(item.key)}">
+                <span id="ref-${escapeAttr(item.key)}" class="latex-ref-anchor"></span>
+                ${linkifyReferenceTargets(renderInlineContent(item.text, referenceIndexByKey))}
+              </li>
+            `).join("")}
           </ol>
         </div>
       `;
@@ -146,20 +158,23 @@ function renderNode(node: ASTNode, key: number): string {
   }
 }
 
-function processTextContent(content: string, key: number): string {
+function processTextContent(content: string, key: number, referenceIndexByKey: Map<string, number>): string {
   const paragraphs = content.split(/\n{2,}/);
   if (paragraphs.length > 1) {
     return paragraphs
       .filter((p) => p.trim())
-      .map((p, i) => `<p class="latex-paragraph" key="${key}-${i}">${renderInlineContent(p.trim())}</p>`)
+      .map((p, i) => {
+        const html = renderInlineContent(p.trim(), referenceIndexByKey);
+        return `<p class="latex-paragraph" key="${key}-${i}">${linkifyBracketCitations(html)}</p>`;
+      })
       .join("");
   }
   const trimmed = content.trim();
   if (!trimmed) return "";
-  return `<p class="latex-paragraph" key="${key}">${renderInlineContent(trimmed)}</p>`;
+  return `<p class="latex-paragraph" key="${key}">${linkifyBracketCitations(renderInlineContent(trimmed, referenceIndexByKey))}</p>`;
 }
 
-function renderTable(content: string, key: number): string {
+function renderTable(content: string, key: number, referenceIndexByKey?: Map<string, number>): string {
   const tabularMatch = content.match(
     /\\begin\{tabular\}\{([^}]*)\}([\s\S]*?)\\end\{tabular\}/
   );
@@ -197,17 +212,56 @@ function renderTable(content: string, key: number): string {
     const cellTag = i === 0 ? "th" : "td";
     html += "<tr>";
     cells.forEach((cell) => {
-      html += `<${cellTag}>${renderInlineContent(cell)}</${cellTag}>`;
+      html += `<${cellTag}>${renderInlineContent(cell, referenceIndexByKey ?? new Map())}</${cellTag}>`;
     });
     html += "</tr>";
   });
 
   html += "</table>";
   if (captionMatch) {
-    html += `<p class="latex-table-caption">${renderInlineContent(captionMatch[1])}</p>`;
+    html += `<p class="latex-table-caption">${renderInlineContent(captionMatch[1], referenceIndexByKey ?? new Map())}</p>`;
   }
   html += "</div>";
   return html;
+}
+
+function buildReferenceIndex(nodes: ASTNode[]): Map<string, number> {
+  const map = new Map<string, number>();
+  const bibliographyNode = nodes.find((node) => node.type === "bibliography");
+  if (!bibliographyNode || bibliographyNode.type !== "bibliography") return map;
+  bibliographyNode.items.forEach((item, i) => {
+    map.set(item.key, i + 1);
+  });
+  return map;
+}
+
+function linkifyBracketCitations(html: string): string {
+  return html.replace(/\[(\d+(?:\s*,\s*\d+)*)\]/g, (_whole, rawNumbers) => {
+    const numbers = String(rawNumbers)
+      .split(",")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    const linked = numbers
+      .map((n) => `<a href="#ref-idx-${escapeAttr(n)}" class="latex-cite">${escapeHtml(n)}</a>`)
+      .join(", ");
+    return `[${linked}]`;
+  });
+}
+
+function linkifyReferenceTargets(html: string): string {
+  // Link arXiv IDs (e.g. arXiv:2312.10997) to the paper page.
+  const withArxivLinks = html.replace(
+    /\barXiv:(\d{4}\.\d{4,5}(?:v\d+)?)\b/gi,
+    (_whole, arxivId) =>
+      `<a href="https://arxiv.org/abs/${escapeAttr(arxivId)}" class="latex-link" target="_blank" rel="noopener noreferrer">arXiv:${escapeHtml(arxivId)}</a>`
+  );
+
+  // Link plain HTTP(S) URLs.
+  return withArxivLinks.replace(
+    /(^|[\s(>])(https?:\/\/[^\s<)]+)(?=[)\].,;:]?(?:\s|$|<))/gi,
+    (_whole, prefix, url) =>
+      `${prefix}<a href="${escapeAttr(url)}" class="latex-link" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`
+  );
 }
 
 function escapeHtml(str: string): string {

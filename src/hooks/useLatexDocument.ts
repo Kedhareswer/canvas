@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useDocumentStore } from "@/store/documentStore";
 import { useDocumentsStore } from "@/store/documentsStore";
+import { useChatStore } from "@/store/chatStore";
 
 export function useLatexDocument(docId: string) {
   const {
@@ -23,6 +24,7 @@ export function useLatexDocument(docId: string) {
   // Load document from client-side store
   useEffect(() => {
     setDocId(docId);
+    useChatStore.getState().setActiveDoc(docId);
 
     const doc = useDocumentsStore.getState().getDocument(docId);
     if (doc) {

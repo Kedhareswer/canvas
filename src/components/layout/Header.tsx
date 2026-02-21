@@ -26,10 +26,15 @@ export function Header({ onSave }: HeaderProps) {
   return (
     <header className="flex items-center justify-between h-12 px-4 border-b border-border bg-background">
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1 text-lg font-semibold">
+        <Link
+          href="/"
+          className="flex items-center gap-1 text-lg font-semibold"
+          aria-label="Go to home page"
+          title="Go to home page"
+        >
           <span className="text-primary">LaTeX</span>
           <span className="text-muted-foreground">Labs</span>
-        </div>
+        </Link>
         <input
           className="bg-transparent border-none text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring rounded px-2 py-1 max-w-[300px]"
           value={title}

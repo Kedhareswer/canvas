@@ -36,6 +36,7 @@ export function useAgentStream() {
         customPrompts,
         agentModelConfigs,
         maxHops,
+        executionMode,
         quickProvider,
         quickModel,
         landingSkills,
@@ -107,6 +108,7 @@ export function useAgentStream() {
             userInstruction,
             forcedAgents: effectiveForcedAgents,
             maxHops: effectiveMaxHops,
+            executionMode,
           }),
           signal: abortController.signal,
         });

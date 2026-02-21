@@ -5,6 +5,7 @@ import { AgentName } from "@/types/agent";
 export type PromptAgentName = AgentName | "router" | "aggregator";
 
 export type LLMProvider = "gemini" | "groq";
+export type ExecutionMode = "agentic" | "programmatic";
 
 export type GeminiModel =
   | "gemini-2.5-flash"
@@ -96,6 +97,7 @@ interface SettingsState {
   customPrompts: Partial<Record<PromptAgentName, string>>;
   agentModelConfigs: Partial<Record<PromptAgentName, AgentModelConfig>>;
   maxHops: number;
+  executionMode: ExecutionMode;
   quickProvider: LLMProvider;
   quickModel: ModelId;
   landingSkills: LandingSkills;
@@ -108,6 +110,7 @@ interface SettingsState {
   setAgentModelConfig: (agent: PromptAgentName, cfg: AgentModelConfig) => void;
   resetAgentModelConfig: (agent: PromptAgentName) => void;
   setMaxHops: (n: number) => void;
+  setExecutionMode: (mode: ExecutionMode) => void;
   setQuickProvider: (provider: LLMProvider) => void;
   setQuickModel: (model: ModelId) => void;
   setLandingSkills: (skills: Partial<LandingSkills>) => void;
@@ -123,6 +126,7 @@ export const useSettingsStore = create<SettingsState>()(
       customPrompts: {},
       agentModelConfigs: {},
       maxHops: 2,
+      executionMode: "agentic" as ExecutionMode,
       quickProvider: "gemini" as LLMProvider,
       quickModel: "gemini-2.5-flash" as ModelId,
       landingSkills: { ...DEFAULT_LANDING_SKILLS },
@@ -158,6 +162,7 @@ export const useSettingsStore = create<SettingsState>()(
         }),
 
       setMaxHops: (n) => set({ maxHops: Math.min(5, Math.max(1, n)) }),
+      setExecutionMode: (mode) => set({ executionMode: mode }),
       setQuickProvider: (provider) => set({ quickProvider: provider }),
       setQuickModel: (model) => set({ quickModel: model }),
       setLandingSkills: (skills) =>
@@ -167,7 +172,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "latex-editor-settings",
-      version: 4,
+      version: 5,
       migrate: (persistedState: unknown) => {
         if (!persistedState || typeof persistedState !== "object") return persistedState as SettingsState;
         const state = persistedState as Record<string, unknown>;
@@ -183,6 +188,7 @@ export const useSettingsStore = create<SettingsState>()(
           ...state,
           agentModelConfigs: nextConfigs,
           groqApiKey: (state.groqApiKey as string) ?? "",
+          executionMode: (state.executionMode as ExecutionMode) ?? "agentic",
           quickProvider: (state.quickProvider as LLMProvider) ?? "gemini",
           quickModel: (state.quickModel as ModelId) ?? "gemini-2.5-flash",
           landingSkills: (state.landingSkills as LandingSkills) ?? { ...DEFAULT_LANDING_SKILLS },

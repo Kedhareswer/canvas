@@ -1,8 +1,10 @@
 "use client";
 
 import { useUIStore } from "@/store/uiStore";
+import { useChatStore } from "@/store/chatStore";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const AGENT_LABELS: Record<string, { label: string; color: string }> = {
   writer: { label: "Writer", color: "bg-blue-500" },
@@ -13,8 +15,21 @@ const AGENT_LABELS: Record<string, { label: string; color: string }> = {
 
 export function AgentStatusBanner() {
   const runningAgents = useUIStore((s) => s.runningAgents);
+  const isStreaming = useChatStore((s) => s.isStreaming);
 
-  if (runningAgents.length === 0) return null;
+  if (runningAgents.length === 0) {
+    if (!isStreaming) return null;
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/50">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/50">

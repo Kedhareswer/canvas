@@ -3,14 +3,16 @@
 import { useEffect, useRef } from "react";
 import { useChatStore } from "@/store/chatStore";
 import { MessageBubble } from "./MessageBubble";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function MessageList() {
   const messages = useChatStore((s) => s.messages);
+  const isStreaming = useChatStore((s) => s.isStreaming);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isStreaming]);
 
   if (messages.length === 0) {
     return (
@@ -33,6 +35,16 @@ export function MessageList() {
       {messages.map((msg) => (
         <MessageBubble key={msg.id} message={msg} />
       ))}
+      {isStreaming && (
+        <div className="flex gap-2">
+          <Skeleton className="h-7 w-7 rounded-full" />
+          <div className="max-w-[85%] space-y-2 rounded-lg bg-secondary/50 px-3 py-2">
+            <Skeleton className="h-3 w-56" />
+            <Skeleton className="h-3 w-44" />
+            <Skeleton className="h-3 w-64" />
+          </div>
+        </div>
+      )}
       <div ref={bottomRef} />
     </div>
   );

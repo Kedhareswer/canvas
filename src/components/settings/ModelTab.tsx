@@ -1,6 +1,6 @@
 "use client";
 
-import { useSettingsStore, PromptAgentName, GeminiModel, GroqModel, LLMProvider, AgentModelConfig, MODEL_DISPLAY_NAMES, GROQ_MODEL_DISPLAY_NAMES } from "@/store/settingsStore";
+import { useSettingsStore, PromptAgentName, GeminiModel, GroqModel, LLMProvider, ExecutionMode, AgentModelConfig, MODEL_DISPLAY_NAMES, GROQ_MODEL_DISPLAY_NAMES } from "@/store/settingsStore";
 import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
 
@@ -49,7 +49,7 @@ function getModelDisplayName(model: string): string {
 }
 
 export function ModelTab() {
-  const { agentModelConfigs, setAgentModelConfig, resetAgentModelConfig, maxHops, setMaxHops } =
+  const { agentModelConfigs, setAgentModelConfig, resetAgentModelConfig, maxHops, setMaxHops, executionMode, setExecutionMode } =
     useSettingsStore();
 
   return (
@@ -164,6 +164,41 @@ export function ModelTab() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Multi-hop settings */}
+      <div>
+        <h3 className="text-sm font-semibold mb-1">Execution Mode</h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          Choose between the current multi-agent graph or programmatic tool orchestration.
+        </p>
+        <div className="flex gap-2 p-3 rounded-lg border border-border bg-muted/20">
+          {([
+            {
+              id: "agentic",
+              title: "Agentic Graph",
+              desc: "Router + specialist agents across configurable hops.",
+            },
+            {
+              id: "programmatic",
+              title: "Programmatic",
+              desc: "Planner generates JS plan, sandbox runs tools in parallel, final writer synthesizes output.",
+            },
+          ] as { id: ExecutionMode; title: string; desc: string }[]).map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => setExecutionMode(mode.id)}
+              className={`flex-1 rounded-md border px-3 py-2 text-left transition ${
+                executionMode === mode.id
+                  ? "border-primary bg-primary/5"
+                  : "border-border bg-background hover:bg-accent"
+              }`}
+            >
+              <div className="text-sm font-semibold">{mode.title}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{mode.desc}</div>
+            </button>
+          ))}
         </div>
       </div>
 

@@ -325,12 +325,19 @@ ol.latex-list ol.latex-list ol.latex-list {
 }
 
 .latex-references {
+  list-style-type: decimal;
+  list-style-position: outside;
   padding-left: 2em;
   font-size: 0.9em;
 }
 
 .latex-references li {
   margin-bottom: 0.5em;
+}
+
+.latex-ref-anchor {
+  position: relative;
+  top: -6px;
 }
 
 .latex-raw {
