@@ -91,6 +91,19 @@ function coerceProvider(value: unknown): Provider {
   return value === "groq" ? "groq" : "gemini";
 }
 
+function resolveProvider(
+  requested: Provider,
+  googleApiKey?: string,
+  groqApiKey?: string
+): Provider {
+  const hasGoogle = Boolean(googleApiKey || process.env.GOOGLE_API_KEY);
+  const hasGroq = Boolean(groqApiKey || process.env.GROQ_API_KEY);
+
+  if (requested === "groq" && !hasGroq && hasGoogle) return "gemini";
+  if (requested === "gemini" && !hasGoogle && hasGroq) return "groq";
+  return requested;
+}
+
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((v): v is string => typeof v === "string");
@@ -200,7 +213,11 @@ export async function runProgrammaticOrchestration(
   const writerCfg = modelConfigs.writer ?? {};
 
   const plannerLLM = createLLM({
-    provider: coerceProvider(plannerCfg.provider),
+    provider: resolveProvider(
+      coerceProvider(plannerCfg.provider),
+      input.googleApiKey,
+      input.groqApiKey
+    ),
     model: plannerCfg.model ?? "gemini-2.5-flash",
     temperature: typeof plannerCfg.temperature === "number" ? plannerCfg.temperature : 0,
     apiKey: input.googleApiKey,
@@ -258,7 +275,11 @@ export async function runProgrammaticOrchestration(
   const writerSystemPrompt =
     input.customPrompts?.writer || PROGRAMMATIC_FINAL_PROMPT;
   const writerLLM = createLLM({
-    provider: coerceProvider(writerCfg.provider),
+    provider: resolveProvider(
+      coerceProvider(writerCfg.provider),
+      input.googleApiKey,
+      input.groqApiKey
+    ),
     model: writerCfg.model ?? "gemini-2.5-flash",
     temperature: typeof writerCfg.temperature === "number" ? writerCfg.temperature : 0.7,
     apiKey: input.googleApiKey,

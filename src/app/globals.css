@@ -56,6 +56,12 @@
   }
 }
 
+html.editor-route,
+body.editor-route {
+  height: 100%;
+  overflow: hidden;
+}
+
 /* LaTeX Document Preview Styles */
 .latex-document {
   font-family: "Latin Modern Roman", Georgia, "Times New Roman", serif;

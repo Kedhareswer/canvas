@@ -37,24 +37,19 @@ function EditorContent({ docId }: { docId: string }) {
   }, [shouldAutoRun, autoRunPrompt, isStreaming, sendMessage, source, router, docId]);
 
   useEffect(() => {
-    const prevBodyOverflow = document.body.style.overflow;
-    const prevHtmlOverflow = document.documentElement.style.overflow;
-
-    // Keep scrolling contained to editor panels and prevent document-level drift.
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
+    document.body.classList.add("editor-route");
+    document.documentElement.classList.add("editor-route");
 
     return () => {
-      document.body.style.overflow = prevBodyOverflow;
-      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.classList.remove("editor-route");
+      document.documentElement.classList.remove("editor-route");
     };
   }, []);
 
   return (
-    <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden">
+    <div className="flex h-screen min-h-screen min-w-0 flex-col overflow-hidden">
       <Header onSave={saveNow} />
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <AppShell />
       </div>
     </div>
