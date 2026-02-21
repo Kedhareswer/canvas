@@ -28,7 +28,7 @@ export function Header({ onSave }: HeaderProps) {
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1 text-lg font-semibold">
           <span className="text-primary">LaTeX</span>
-          <span className="text-muted-foreground">Editor</span>
+          <span className="text-muted-foreground">Labs</span>
         </div>
         <input
           className="bg-transparent border-none text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring rounded px-2 py-1 max-w-[300px]"
@@ -43,10 +43,10 @@ export function Header({ onSave }: HeaderProps) {
           {isSaving
             ? "Saving..."
             : isDirty
-            ? "Unsaved changes"
-            : lastSavedAt
-            ? `Saved ${new Date(lastSavedAt).toLocaleTimeString()}`
-            : ""}
+              ? "Unsaved changes"
+              : lastSavedAt
+                ? `Saved ${new Date(lastSavedAt).toLocaleTimeString()}`
+                : ""}
         </span>
 
         <Button variant="ghost" size="icon" onClick={undo} disabled={revisionIndex <= 0} title="Undo">

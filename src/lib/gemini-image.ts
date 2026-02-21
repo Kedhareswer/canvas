@@ -1,14 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import fs from "fs/promises";
-import path from "path";
-import { generateId } from "@/lib/utils";
-
-const IMAGES_DIR = path.join(process.cwd(), "documents", "images");
 
 export async function generateImage(
   description: string,
   apiKey: string
-): Promise<{ url: string; filename: string }> {
+): Promise<{ dataUri: string }> {
   const genAI = new GoogleGenerativeAI(apiKey);
 
   const model = genAI.getGenerativeModel({
@@ -33,17 +28,8 @@ Do not include any text watermarks.`;
     const inlineData = (part as any).inlineData;
     if (inlineData) {
       const { data, mimeType } = inlineData as { data: string; mimeType: string };
-      const ext = mimeType?.includes("png") ? "png" : "jpeg";
-      const id = generateId();
-      const filename = `${id}.${ext}`;
-
-      await fs.mkdir(IMAGES_DIR, { recursive: true });
-      await fs.writeFile(
-        path.join(IMAGES_DIR, filename),
-        Buffer.from(data, "base64")
-      );
-
-      return { url: `/api/images/${filename}`, filename };
+      const mime = mimeType || "image/png";
+      return { dataUri: `data:${mime};base64,${data}` };
     }
   }
 

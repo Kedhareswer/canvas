@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useDocumentStore } from "@/store/documentStore";
+import { useDocumentsStore } from "@/store/documentsStore";
 
 export function useLatexDocument(docId: string) {
   const {
@@ -19,30 +20,20 @@ export function useLatexDocument(docId: string) {
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load document
+  // Load document from client-side store
   useEffect(() => {
     setDocId(docId);
 
-    async function load() {
-      try {
-        const res = await fetch(`/api/documents/${docId}`);
-        if (res.ok) {
-          const doc = await res.json();
-          setSource(doc.source);
-          setTitle(doc.meta.title);
-          pushRevision();
-          // Mark as not dirty since we just loaded
-          useDocumentStore.setState({ isDirty: false });
-        }
-      } catch (err) {
-        console.error("Failed to load document:", err);
-      }
+    const doc = useDocumentsStore.getState().getDocument(docId);
+    if (doc) {
+      setSource(doc.source);
+      setTitle(doc.title);
+      pushRevision();
+      useDocumentStore.setState({ isDirty: false });
     }
-
-    load();
   }, [docId, setDocId, setSource, setTitle, pushRevision]);
 
-  // Auto-save with 2s debounce
+  // Auto-save with 2s debounce to localStorage
   useEffect(() => {
     if (!isDirty || isSaving) return;
 
@@ -50,19 +41,10 @@ export function useLatexDocument(docId: string) {
       clearTimeout(saveTimerRef.current);
     }
 
-    saveTimerRef.current = setTimeout(async () => {
+    saveTimerRef.current = setTimeout(() => {
       setIsSaving(true);
-      try {
-        await fetch(`/api/documents/${docId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ source, title }),
-        });
-        markSaved();
-      } catch (err) {
-        console.error("Failed to save:", err);
-        setIsSaving(false);
-      }
+      useDocumentsStore.getState().updateDocument(docId, source, title);
+      markSaved();
     }, 2000);
 
     return () => {
@@ -72,22 +54,13 @@ export function useLatexDocument(docId: string) {
     };
   }, [isDirty, source, title, docId, isSaving, setIsSaving, markSaved]);
 
-  const saveNow = useCallback(async () => {
+  const saveNow = useCallback(() => {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
     }
     setIsSaving(true);
-    try {
-      await fetch(`/api/documents/${docId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source, title }),
-      });
-      markSaved();
-    } catch (err) {
-      console.error("Failed to save:", err);
-      setIsSaving(false);
-    }
+    useDocumentsStore.getState().updateDocument(docId, source, title);
+    markSaved();
   }, [docId, source, title, setIsSaving, markSaved]);
 
   return { saveNow };

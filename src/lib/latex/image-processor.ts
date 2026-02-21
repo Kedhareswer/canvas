@@ -3,8 +3,7 @@ import { generateImage } from "@/lib/gemini-image";
 export interface GeneratedImage {
   placeholder: string;
   description: string;
-  url: string;
-  filename: string;
+  dataUri: string;
 }
 
 const GEN_PLACEHOLDER_REGEX = /\[gen:([^\]]+)\]/g;
@@ -35,9 +34,9 @@ export async function processImagePlaceholders(
   for (const { full, description } of toProcess) {
     try {
       onProgress?.(`Generating image: ${description.slice(0, 60)}...`);
-      const { url, filename } = await generateImage(description, apiKey);
-      updatedLatex = updatedLatex.replace(full, url);
-      generatedImages.push({ placeholder: full, description, url, filename });
+      const { dataUri } = await generateImage(description, apiKey);
+      updatedLatex = updatedLatex.replace(full, dataUri);
+      generatedImages.push({ placeholder: full, description, dataUri });
     } catch (error) {
       console.error(`Image generation failed for: ${description}`, error);
       onProgress?.(`Failed to generate image: ${description.slice(0, 40)}`);

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DocumentMeta } from "@/types/document";
+import { useDocumentsStore, StoredDocument } from "@/store/documentsStore";
 import { Plus, Search, ArrowUpRight, Sparkles, FileText, Clock3, Settings } from "lucide-react";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 
@@ -55,26 +55,19 @@ function formatRelativeDate(value: string) {
 
 export default function HomePage() {
   const router = useRouter();
-  const [documents, setDocuments] = useState<DocumentMeta[]>([]);
-  const [loadingDocs, setLoadingDocs] = useState(true);
   const [query, setQuery] = useState("");
   const [instruction, setInstruction] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  async function fetchDocs() {
-    try {
-      const res = await fetch("/api/documents");
-      if (res.ok) {
-        setDocuments(await res.json());
-      }
-    } finally {
-      setLoadingDocs(false);
-    }
-  }
+  const createDocument = useDocumentsStore((s) => s.createDocument);
+  const listDocuments = useDocumentsStore((s) => s.listDocuments);
 
   useEffect(() => {
-    fetchDocs();
+    setIsHydrated(true);
   }, []);
+
+  const documents: StoredDocument[] = isHydrated ? listDocuments() : [];
 
   const filteredDocs = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -82,7 +75,7 @@ export default function HomePage() {
     return documents.filter((doc) => doc.title.toLowerCase().includes(q));
   }, [documents, query]);
 
-  async function createAndOpenDocument(seed?: string) {
+  function createAndOpenDocument(seed?: string) {
     if (isCreating) return;
     setIsCreating(true);
 
@@ -92,23 +85,13 @@ export default function HomePage() {
       ? base.slice(0, 72).replace(/\s+/g, " ").trim()
       : fallbackTitle;
 
-    try {
-      const res = await fetch("/api/documents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-      });
-
-      if (!res.ok) return;
-      const doc = await res.json();
-      router.push(`/editor/${doc.id}`);
-    } finally {
-      setIsCreating(false);
-    }
+    const id = createDocument(title);
+    router.push(`/editor/${id}`);
+    setIsCreating(false);
   }
 
   function handleSubmit() {
-    void createAndOpenDocument();
+    createAndOpenDocument();
   }
 
   return (
@@ -118,7 +101,7 @@ export default function HomePage() {
           <div className="space-y-4 p-4">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => void createAndOpenDocument()}
+                onClick={() => createAndOpenDocument()}
                 className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-[#1c4f2d] px-3 text-sm font-semibold text-white transition hover:bg-[#184327] disabled:opacity-60"
                 disabled={isCreating}
               >
@@ -147,7 +130,7 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-1.5">
-              {loadingDocs ? (
+              {!isHydrated ? (
                 <p className="px-1 py-6 text-sm text-slate-500">Loading documents...</p>
               ) : filteredDocs.length === 0 ? (
                 <p className="px-1 py-6 text-sm text-slate-500">No matching drafts</p>
@@ -173,7 +156,7 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center justify-between border-t border-[#d6dad6] px-4 py-3 text-sm text-slate-700 md:absolute md:bottom-0 md:w-[300px]">
-            <span className={`${displayFont.className} text-[30px] leading-none`}>Canvas</span>
+            <span className={`${displayFont.className} text-[30px] leading-none`}>LaTeX Labs</span>
             <button
               aria-label="Settings"
               onClick={() => router.push("/settings")}
@@ -243,7 +226,7 @@ export default function HomePage() {
                   {EXAMPLE_PROMPTS.map((item) => (
                     <button
                       key={item.title}
-                      onClick={() => void createAndOpenDocument(item.title)}
+                      onClick={() => createAndOpenDocument(item.title)}
                       className="rounded-xl border border-[#d8ddd8] bg-white p-4 text-left transition hover:-translate-y-0.5 hover:border-[#bcc8bd] hover:shadow-sm"
                     >
                       <h3 className="mb-1.5 text-sm font-semibold text-slate-800">{item.title}</h3>

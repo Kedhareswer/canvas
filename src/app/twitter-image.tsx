@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Canvas LaTeX editor with AI agents";
+export const alt = "LaTeX Labs LaTeX editor with AI agents";
 export const size = {
   width: 1200,
   height: 600,
@@ -25,7 +25,7 @@ export default function TwitterImage() {
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: "68%" }}>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#1f4d2f" }}>Canvas</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#1f4d2f" }}>LaTeX Labs</div>
           <div style={{ fontSize: 62, fontWeight: 800, lineHeight: 1.03 }}>
             Build Better Papers Faster
           </div>

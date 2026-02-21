@@ -1,6 +1,6 @@
-# Canvas
+# LaTeX Labs
 
-Canvas is a multi-agent LaTeX editor built with Next.js, LangChain, and Gemini.  
+LaTeX Labs is a multi-agent LaTeX editor built with Next.js, LangChain, and Gemini.  
 It helps you draft, review, format, and research academic documents in one workflow.
 
 ## Features

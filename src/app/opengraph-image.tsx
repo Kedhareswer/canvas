@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Canvas multi-agent LaTeX editor";
+export const alt = "LaTeX Labs multi-agent LaTeX editor";
 export const size = {
   width: 1200,
   height: 630,
@@ -43,7 +43,7 @@ export default function OpenGraphImage() {
               color: "#1f4d2f",
             }}
           >
-            Canvas
+            LaTeX Labs
           </div>
           <div
             style={{

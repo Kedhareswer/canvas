@@ -14,12 +14,12 @@ function getMetadataBase() {
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
   title: {
-    default: "Canvas | Multi-Agent LaTeX Editor",
-    template: "%s | Canvas",
+    default: "LaTeX Labs | Multi-Agent LaTeX Editor",
+    template: "%s | LaTeX Labs",
   },
   description:
-    "Canvas is a multi-agent LaTeX writing workspace with Gemini-powered writing, reviewing, formatting, and research flows.",
-  applicationName: "Canvas",
+    "LaTeX Labs is a multi-agent LaTeX writing workspace with Gemini-powered writing, reviewing, formatting, and research flows.",
+  applicationName: "LaTeX Labs",
   keywords: [
     "LaTeX editor",
     "AI writing assistant",
@@ -30,22 +30,22 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     type: "website",
-    title: "Canvas | Multi-Agent LaTeX Editor",
+    title: "LaTeX Labs | Multi-Agent LaTeX Editor",
     description:
       "Draft, review, format, and research in one LaTeX workspace powered by coordinated AI agents.",
-    siteName: "Canvas",
+    siteName: "LaTeX Labs",
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "Canvas LaTeX editor workspace preview",
+        alt: "LaTeX Labs LaTeX editor workspace preview",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Canvas | Multi-Agent LaTeX Editor",
+    title: "LaTeX Labs | Multi-Agent LaTeX Editor",
     description:
       "Create publication-ready LaTeX documents with AI writer, reviewer, formatter, and research agents.",
     images: ["/twitter-image"],
@@ -64,7 +64,7 @@ export default function RootLayout({
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Canvas",
+    name: "LaTeX Labs",
     applicationCategory: "WritingApplication",
     operatingSystem: "Web",
     description:
