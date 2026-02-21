@@ -27,8 +27,10 @@ export async function POST(req: NextRequest) {
     messages = [],
     forcedAgents = [],
     maxHops = 2,
-    executionMode = "agentic",
+    executionMode: requestedExecutionMode = "agentic",
   } = body;
+  const executionMode =
+    requestedExecutionMode === "programmatic" ? "programmatic" : "agentic";
 
   const googleApiKey = req.headers.get("X-API-Key") || undefined;
   const exaApiKey = req.headers.get("X-Exa-Key") || undefined;

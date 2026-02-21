@@ -8,6 +8,16 @@ import { useUIStore } from "@/store/uiStore";
 import { useSettingsStore, PromptAgentName, AgentModelConfig } from "@/store/settingsStore";
 import { AgentName } from "@/types/agent";
 
+function toBase64Utf8(value: unknown): string {
+  const json = JSON.stringify(value);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
 export function useAgentStream() {
   const abortRef = useRef<AbortController | null>(null);
 
@@ -41,6 +51,8 @@ export function useAgentStream() {
         quickModel,
         landingSkills,
       } = useSettingsStore.getState();
+      const effectiveExecutionMode =
+        executionMode === "programmatic" ? "programmatic" : "agentic";
 
       /* ── Apply quickModel as fallback for agents without per-agent config ── */
       const ALL_AGENTS: PromptAgentName[] = ["router", "writer", "reviewer", "formatter", "research", "aggregator"];
@@ -94,10 +106,10 @@ export function useAgentStream() {
         if (exaApiKey) headers["X-Exa-Key"] = exaApiKey;
         if (groqApiKey) headers["X-Groq-Key"] = groqApiKey;
         if (Object.keys(effectivePrompts).length > 0) {
-          headers["X-Custom-Prompts"] = btoa(JSON.stringify(effectivePrompts));
+          headers["X-Custom-Prompts"] = toBase64Utf8(effectivePrompts);
         }
         if (Object.keys(effectiveConfigs).length > 0) {
-          headers["X-Model-Configs"] = btoa(JSON.stringify(effectiveConfigs));
+          headers["X-Model-Configs"] = toBase64Utf8(effectiveConfigs);
         }
 
         const response = await fetch("/api/agent", {
@@ -108,7 +120,7 @@ export function useAgentStream() {
             userInstruction,
             forcedAgents: effectiveForcedAgents,
             maxHops: effectiveMaxHops,
-            executionMode,
+            executionMode: effectiveExecutionMode,
           }),
           signal: abortController.signal,
         });

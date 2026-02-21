@@ -184,11 +184,14 @@ export const useSettingsStore = create<SettingsState>()(
             return [agent, { provider: cfg.provider ?? "gemini", model: mapped, temperature: cfg.temperature ?? 0.7 }];
           })
         ) as SettingsState["agentModelConfigs"];
+        const rawExecutionMode = state.executionMode;
+        const normalizedExecutionMode =
+          rawExecutionMode === "programmatic" ? "programmatic" : "agentic";
         return {
           ...state,
           agentModelConfigs: nextConfigs,
           groqApiKey: (state.groqApiKey as string) ?? "",
-          executionMode: (state.executionMode as ExecutionMode) ?? "agentic",
+          executionMode: normalizedExecutionMode,
           quickProvider: (state.quickProvider as LLMProvider) ?? "gemini",
           quickModel: (state.quickModel as ModelId) ?? "gemini-2.5-flash",
           landingSkills: (state.landingSkills as LandingSkills) ?? { ...DEFAULT_LANDING_SKILLS },
