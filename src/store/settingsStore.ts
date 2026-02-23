@@ -34,7 +34,7 @@ export interface AgentModelConfig {
 export type CitationStyle = "apa" | "ieee" | "mla" | "chicago" | "harvard";
 export type DocumentClass = "article" | "report" | "book" | "beamer" | "letter";
 
-export interface LandingSkills {
+interface LandingSkills {
   webResearch: boolean;
   deepReview: boolean;
   citationStyle: CitationStyle | null;

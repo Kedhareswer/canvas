@@ -20,16 +20,3 @@ export interface AgentOutput {
   citations?: CitationResult[];
   reasoning?: string;
 }
-
-export interface GraphInput {
-  messages: Array<{ role: string; content: string }>;
-  latexDocument: string;
-  userInstruction: string;
-  forcedAgents?: AgentName[];
-}
-
-export interface GraphStateOutput {
-  finalLatex: string;
-  followupMessage: string;
-  agentOutputs: Partial<Record<AgentName, AgentOutput>>;
-}

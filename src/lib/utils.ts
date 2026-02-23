@@ -9,14 +9,3 @@ export function cn(...inputs: ClassValue[]) {
 export function generateId(): string {
   return v4();
 }
-
-export function debounce<T extends (...args: unknown[]) => unknown>(
-  fn: T,
-  ms: number
-): (...args: Parameters<T>) => void {
-  let timer: ReturnType<typeof setTimeout>;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-}

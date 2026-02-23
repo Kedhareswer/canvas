@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useDocumentsStore, StoredDocument } from "@/store/documentsStore";
 import {
@@ -475,15 +475,15 @@ export default function HomePage() {
   const [query, setQuery] = useState("");
   const [instruction, setInstruction] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   const createDocument = useDocumentsStore((s) => s.createDocument);
   const deleteDocument = useDocumentsStore((s) => s.deleteDocument);
   const listDocuments = useDocumentsStore((s) => s.listDocuments);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   const documents: StoredDocument[] = isHydrated ? listDocuments() : [];
 

@@ -2,20 +2,19 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useDocumentStore } from "@/store/documentStore";
-import { EditorView, basicSetup } from "codemirror";
-import { EditorState } from "@codemirror/state";
-import { StreamLanguage } from "@codemirror/language";
-import { stex } from "@codemirror/legacy-modes/mode/stex";
-import { oneDark } from "@codemirror/theme-one-dark";
 
 export function LaTeXSourceEditor() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
+  const viewRef = useRef<{
+    state: { doc: { toString: () => string } };
+    dispatch: (args: { changes: { from: number; to: number; insert: string } }) => void;
+    destroy: () => void;
+  } | null>(null);
   const { source, setSource } = useDocumentStore();
   const isExternalUpdate = useRef(false);
 
   const onUpdate = useCallback(
-    (update: { docChanged: boolean; state: EditorState }) => {
+    (update: { docChanged: boolean; state: { doc: { toString: () => string } } }) => {
       if (update.docChanged && !isExternalUpdate.current) {
         setSource(update.state.doc.toString());
       }
@@ -25,30 +24,60 @@ export function LaTeXSourceEditor() {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    let cancelled = false;
 
-    const state = EditorState.create({
-      doc: source,
-      extensions: [
-        basicSetup,
-        StreamLanguage.define(stex),
-        oneDark,
-        EditorView.updateListener.of(onUpdate),
-        EditorView.theme({
-          "&": { height: "100%", fontSize: "13px" },
-          ".cm-scroller": { overflow: "auto", fontFamily: "'JetBrains Mono', Consolas, monospace" },
-          ".cm-content": { padding: "8px 0" },
-        }),
-      ],
-    });
+    const init = async () => {
+      const [
+        codemirror,
+        codemirrorState,
+        codemirrorLanguage,
+        codemirrorLegacyStex,
+        codemirrorThemeOneDark,
+      ] = await Promise.all([
+        import("codemirror"),
+        import("@codemirror/state"),
+        import("@codemirror/language"),
+        import("@codemirror/legacy-modes/mode/stex"),
+        import("@codemirror/theme-one-dark"),
+      ]);
 
-    const view = new EditorView({
-      state,
-      parent: containerRef.current,
-    });
+      if (cancelled || !containerRef.current) return;
 
-    viewRef.current = view;
+      const { EditorView, basicSetup } = codemirror;
+      const { EditorState } = codemirrorState;
+      const { StreamLanguage } = codemirrorLanguage;
+      const { stex } = codemirrorLegacyStex;
+      const { oneDark } = codemirrorThemeOneDark;
+
+      const state = EditorState.create({
+        doc: source,
+        extensions: [
+          basicSetup,
+          StreamLanguage.define(stex),
+          oneDark,
+          EditorView.updateListener.of(onUpdate),
+          EditorView.theme({
+            "&": { height: "100%", fontSize: "13px" },
+            ".cm-scroller": { overflow: "auto", fontFamily: "'JetBrains Mono', Consolas, monospace" },
+            ".cm-content": { padding: "8px 0" },
+          }),
+        ],
+      });
+
+      const view = new EditorView({
+        state,
+        parent: containerRef.current,
+      });
+
+      viewRef.current = view;
+    };
+
+    void init();
 
     return () => {
+      cancelled = true;
+      const view = viewRef.current;
+      if (!view) return;
       view.destroy();
       viewRef.current = null;
     };

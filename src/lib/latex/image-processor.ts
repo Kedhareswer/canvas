@@ -1,6 +1,6 @@
 import { generateImage } from "@/lib/gemini-image";
 
-export interface GeneratedImage {
+interface GeneratedImage {
   placeholder: string;
   description: string;
   dataUri: string;

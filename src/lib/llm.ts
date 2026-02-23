@@ -3,7 +3,7 @@ import { ChatGroq } from "@langchain/groq";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { LLMProvider, GeminiModel, GroqModel } from "@/store/settingsStore";
 
-export interface LLMConfig {
+interface LLMConfig {
   provider?: LLMProvider;
   model?: string;
   temperature?: number;

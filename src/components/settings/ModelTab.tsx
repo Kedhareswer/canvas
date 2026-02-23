@@ -211,22 +211,30 @@ export function ModelTab() {
         </p>
         <div className="flex items-center gap-4 p-3 rounded-lg border border-border bg-muted/20">
           <div className="flex-1">
-            <label className="text-sm font-medium">Maximum hops</label>
+            <label htmlFor="max-hops-value" className="text-sm font-medium">
+              Maximum hops
+            </label>
             <p className="text-xs text-muted-foreground mt-0.5">
               Each hop is a full agent graph execution. Default: 2, max: 5.
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => setMaxHops(maxHops - 1)}
+              onClick={() => setMaxHops(useSettingsStore.getState().maxHops - 1)}
               disabled={maxHops <= 1}
               className="w-8 h-8 rounded-md border border-input bg-background flex items-center justify-center text-sm hover:bg-accent disabled:opacity-40"
             >
               −
             </button>
-            <span className="w-8 text-center text-sm font-semibold tabular-nums">{maxHops}</span>
+            <input
+              id="max-hops-value"
+              readOnly
+              value={maxHops}
+              className="w-8 bg-transparent text-center text-sm font-semibold tabular-nums"
+              aria-live="polite"
+            />
             <button
-              onClick={() => setMaxHops(maxHops + 1)}
+              onClick={() => setMaxHops(useSettingsStore.getState().maxHops + 1)}
               disabled={maxHops >= 5}
               className="w-8 h-8 rounded-md border border-input bg-background flex items-center justify-center text-sm hover:bg-accent disabled:opacity-40"
             >

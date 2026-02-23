@@ -37,8 +37,8 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
           <span className="ml-1">{message.content}</span>
           {message.agentOutput?.suggestions && (
             <ul className="mt-1 space-y-1">
-              {message.agentOutput.suggestions.slice(0, 3).map((s, i) => (
-                <li key={i} className="text-xs opacity-80">
+              {message.agentOutput.suggestions.slice(0, 3).map((s) => (
+                <li key={`${s.location}-${s.issue}-${s.severity}`} className="text-xs opacity-80">
                   {s.severity === "error" ? "!!" : s.severity === "warning" ? "!" : "-"}{" "}
                   {s.location}: {s.issue}
                 </li>
@@ -47,8 +47,8 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
           )}
           {message.agentOutput?.citations && (
             <ul className="mt-1 space-y-1">
-              {message.agentOutput.citations.slice(0, 3).map((c, i) => (
-                <li key={i} className="text-xs opacity-80">
+              {message.agentOutput.citations.slice(0, 3).map((c) => (
+                <li key={`${c.bibtexKey}-${c.title}`} className="text-xs opacity-80">
                   [{c.bibtexKey}] {c.title}
                 </li>
               ))}

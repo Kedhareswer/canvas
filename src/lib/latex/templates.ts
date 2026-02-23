@@ -24,7 +24,7 @@ Begin writing here.
 \\end{document}
 `;
 
-export const REPORT_TEMPLATE = `\\documentclass[11pt,a4paper]{report}
+const REPORT_TEMPLATE = `\\documentclass[11pt,a4paper]{report}
 \\usepackage[utf8]{inputenc}
 \\usepackage[T1]{fontenc}
 \\usepackage{amsmath,amssymb}
@@ -51,7 +51,7 @@ Begin writing here.
 \\end{document}
 `;
 
-export const BLANK_TEMPLATE = `\\documentclass[11pt,a4paper]{article}
+const BLANK_TEMPLATE = `\\documentclass[11pt,a4paper]{article}
 \\usepackage[utf8]{inputenc}
 \\usepackage[T1]{fontenc}
 \\usepackage{amsmath,amssymb}

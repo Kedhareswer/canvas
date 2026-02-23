@@ -11,19 +11,23 @@ export function ApiKeysTab() {
   const { googleApiKey, exaApiKey, groqApiKey, setGoogleApiKey, setExaApiKey, setGroqApiKey } =
     useSettingsStore();
 
-  const [localGoogle, setLocalGoogle] = useState(googleApiKey);
-  const [localExa, setLocalExa] = useState(exaApiKey);
-  const [localGroq, setLocalGroq] = useState(groqApiKey);
+  const [localKeys, setLocalKeys] = useState({
+    google: googleApiKey,
+    exa: exaApiKey,
+    groq: groqApiKey,
+  });
   const [status, setStatus] = useState<ValidationStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("");
-  const [showGoogle, setShowGoogle] = useState(false);
-  const [showExa, setShowExa] = useState(false);
-  const [showGroq, setShowGroq] = useState(false);
+  const [showKeys, setShowKeys] = useState({
+    google: false,
+    exa: false,
+    groq: false,
+  });
 
   const handleSave = async () => {
-    setGoogleApiKey(localGoogle);
-    setExaApiKey(localExa);
-    setGroqApiKey(localGroq);
+    setGoogleApiKey(localKeys.google);
+    setExaApiKey(localKeys.exa);
+    setGroqApiKey(localKeys.groq);
     setStatus("validating");
     setStatusMessage("");
 
@@ -31,7 +35,11 @@ export function ApiKeysTab() {
       const res = await fetch("/api/settings/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ googleApiKey: localGoogle, exaApiKey: localExa, groqApiKey: localGroq }),
+        body: JSON.stringify({
+          googleApiKey: localKeys.google,
+          exaApiKey: localKeys.exa,
+          groqApiKey: localKeys.groq,
+        }),
       });
       const data = await res.json();
       if (data.valid) {
@@ -56,21 +64,25 @@ export function ApiKeysTab() {
 
       {/* Google API Key */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Google API Key</label>
+        <label htmlFor="google-api-key" className="text-sm font-medium">Google API Key</label>
         <div className="relative">
           <input
-            type={showGoogle ? "text" : "password"}
-            value={localGoogle}
-            onChange={(e) => { setLocalGoogle(e.target.value); setStatus("idle"); }}
+            id="google-api-key"
+            type={showKeys.google ? "text" : "password"}
+            value={localKeys.google}
+            onChange={(e) => {
+              setLocalKeys((prev) => ({ ...prev, google: e.target.value }));
+              setStatus("idle");
+            }}
             className="w-full rounded-md border border-input bg-muted/50 px-3 py-2 pr-10 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
             placeholder="AIzaSy..."
           />
           <button
             type="button"
-            onClick={() => setShowGoogle((v) => !v)}
+            onClick={() => setShowKeys((prev) => ({ ...prev, google: !prev.google }))}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
-            {showGoogle ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {showKeys.google ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -83,21 +95,25 @@ export function ApiKeysTab() {
 
       {/* Groq API Key */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Groq API Key <span className="text-muted-foreground font-normal">(optional)</span></label>
+        <label htmlFor="groq-api-key" className="text-sm font-medium">Groq API Key <span className="text-muted-foreground font-normal">(optional)</span></label>
         <div className="relative">
           <input
-            type={showGroq ? "text" : "password"}
-            value={localGroq}
-            onChange={(e) => { setLocalGroq(e.target.value); setStatus("idle"); }}
+            id="groq-api-key"
+            type={showKeys.groq ? "text" : "password"}
+            value={localKeys.groq}
+            onChange={(e) => {
+              setLocalKeys((prev) => ({ ...prev, groq: e.target.value }));
+              setStatus("idle");
+            }}
             className="w-full rounded-md border border-input bg-muted/50 px-3 py-2 pr-10 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
             placeholder="gsk_..."
           />
           <button
             type="button"
-            onClick={() => setShowGroq((v) => !v)}
+            onClick={() => setShowKeys((prev) => ({ ...prev, groq: !prev.groq }))}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
-            {showGroq ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {showKeys.groq ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -110,21 +126,25 @@ export function ApiKeysTab() {
 
       {/* Exa API Key */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Exa API Key <span className="text-muted-foreground font-normal">(optional)</span></label>
+        <label htmlFor="exa-api-key" className="text-sm font-medium">Exa API Key <span className="text-muted-foreground font-normal">(optional)</span></label>
         <div className="relative">
           <input
-            type={showExa ? "text" : "password"}
-            value={localExa}
-            onChange={(e) => { setLocalExa(e.target.value); setStatus("idle"); }}
+            id="exa-api-key"
+            type={showKeys.exa ? "text" : "password"}
+            value={localKeys.exa}
+            onChange={(e) => {
+              setLocalKeys((prev) => ({ ...prev, exa: e.target.value }));
+              setStatus("idle");
+            }}
             className="w-full rounded-md border border-input bg-muted/50 px-3 py-2 pr-10 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring"
             placeholder="exa-..."
           />
           <button
             type="button"
-            onClick={() => setShowExa((v) => !v)}
+            onClick={() => setShowKeys((prev) => ({ ...prev, exa: !prev.exa }))}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
-            {showExa ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {showKeys.exa ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
         <p className="text-xs text-muted-foreground">

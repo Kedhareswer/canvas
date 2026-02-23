@@ -1,7 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, use, useEffect, useMemo, useRef } from "react";
 import { Header } from "@/components/layout/Header";
 import { AppShell } from "@/components/layout/AppShell";
 import { useLatexDocument } from "@/hooks/useLatexDocument";
@@ -13,8 +12,10 @@ import { useChatStore } from "@/store/chatStore";
 function EditorContent({ docId }: { docId: string }) {
   const { saveNow } = useLatexDocument(docId);
   const { sendMessage } = useAgentStream();
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useMemo(
+    () => new URLSearchParams(typeof window === "undefined" ? "" : window.location.search),
+    []
+  );
   const source = useDocumentStore((s) => s.source);
   const isStreaming = useChatStore((s) => s.isStreaming);
   const autoRunTriggeredRef = useRef(false);
@@ -33,8 +34,8 @@ function EditorContent({ docId }: { docId: string }) {
     autoRunTriggeredRef.current = true;
     const forcedAgents = useUIStore.getState().forcedAgents;
     sendMessage(autoRunPrompt, source, forcedAgents.length > 0 ? forcedAgents : []);
-    router.replace(`/editor/${docId}`);
-  }, [shouldAutoRun, autoRunPrompt, isStreaming, sendMessage, source, router, docId]);
+    window.history.replaceState(window.history.state, "", `/editor/${docId}`);
+  }, [shouldAutoRun, autoRunPrompt, isStreaming, sendMessage, source, docId]);
 
   useEffect(() => {
     document.body.classList.add("editor-route");
@@ -62,5 +63,9 @@ export default function EditorPage({
   params: Promise<{ docId: string }>;
 }) {
   const { docId } = use(params);
-  return <EditorContent docId={docId} />;
+  return (
+    <Suspense fallback={<div className="h-screen min-h-screen bg-background" />}>
+      <EditorContent docId={docId} />
+    </Suspense>
+  );
 }

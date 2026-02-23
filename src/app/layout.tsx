@@ -77,8 +77,9 @@ export default function RootLayout({
       <body className="min-h-screen antialiased" suppressHydrationWarning>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-        />
+        >
+          {JSON.stringify(structuredData)}
+        </script>
         {children}
       </body>
     </html>
