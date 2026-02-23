@@ -4,6 +4,7 @@ import { createLLM } from "@/lib/llm";
 import { FORMATTER_SYSTEM_PROMPT } from "../prompts/formatter";
 import { AgentOutput } from "@/types/agent";
 import { AgentModelConfig } from "@/store/settingsStore";
+import { getModelResponseText, stripCodeFences } from "./response-utils";
 
 export async function formatterAgent(
   state: LaTeXGraphState,
@@ -34,19 +35,12 @@ export async function formatterAgent(
     },
   ]);
 
-  const text =
-    typeof response.content === "string"
-      ? response.content
-      : JSON.stringify(response.content);
-
-  const latex = text
-    .replace(/^```(?:latex|tex)?\n?/gm, "")
-    .replace(/\n?```$/gm, "")
-    .trim();
+  const text = getModelResponseText(response.content);
+  const latex = stripCodeFences(text);
 
   const output: AgentOutput = {
     agentName: "formatter",
-    updatedLatex: latex,
+    updatedLatex: latex || state.latexDocument,
     reasoning: "Reformatted the document structure and styling.",
   };
 

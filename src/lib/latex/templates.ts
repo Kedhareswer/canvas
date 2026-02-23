@@ -62,9 +62,3 @@ const BLANK_TEMPLATE = `\\documentclass[11pt,a4paper]{article}
 
 \\end{document}
 `;
-
-export const TEMPLATES: Record<string, { name: string; source: string }> = {
-  article: { name: "Article", source: ARTICLE_TEMPLATE },
-  report: { name: "Report", source: REPORT_TEMPLATE },
-  blank: { name: "Blank", source: BLANK_TEMPLATE },
-};

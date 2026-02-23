@@ -4,6 +4,7 @@ import { createLLM } from "@/lib/llm";
 import { RESEARCH_SYSTEM_PROMPT } from "../prompts/research";
 import { AgentOutput, CitationResult } from "@/types/agent";
 import { AgentModelConfig } from "@/store/settingsStore";
+import { getModelResponseText, parseJsonFromText } from "./response-utils";
 
 export async function researchAgent(
   state: LaTeXGraphState,
@@ -34,19 +35,20 @@ export async function researchAgent(
     },
   ]);
 
-  const text =
-    typeof response.content === "string"
-      ? response.content
-      : JSON.stringify(response.content);
+  const text = getModelResponseText(response.content);
 
   let citations: CitationResult[] = [];
   let suggestedLatexInsert = "";
 
   try {
-    const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(cleaned);
-    citations = parsed.citations || [];
-    suggestedLatexInsert = parsed.suggestedLatexInsert || "";
+    const parsed = parseJsonFromText(text) as Record<string, unknown>;
+    citations = Array.isArray(parsed.citations)
+      ? (parsed.citations as CitationResult[])
+      : [];
+    suggestedLatexInsert =
+      typeof parsed.suggestedLatexInsert === "string"
+        ? parsed.suggestedLatexInsert
+        : "";
   } catch {
     citations = [];
     suggestedLatexInsert = "";

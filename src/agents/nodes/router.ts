@@ -3,6 +3,7 @@ import { LaTeXGraphState } from "../state";
 import { createLLM } from "@/lib/llm";
 import { AgentName } from "@/types/agent";
 import { AgentModelConfig } from "@/store/settingsStore";
+import { getModelResponseText, parseJsonFromText } from "./response-utils";
 
 export const ROUTER_PROMPT = `You are a router that decides which AI agents should handle a user's request about a LaTeX document.
 
@@ -67,15 +68,13 @@ export async function routerNode(
   ]);
 
   try {
-    const text =
-      typeof response.content === "string"
-        ? response.content
-        : JSON.stringify(response.content);
-    const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(cleaned);
+    const parsed = parseJsonFromText(getModelResponseText(response.content)) as Record<
+      string,
+      unknown
+    >;
     const validAgents: AgentName[] = ["writer", "reviewer", "formatter", "research"];
-    const activeAgents = (parsed.activeAgents as string[]).filter((a) =>
-      validAgents.includes(a as AgentName)
+    const activeAgents = (Array.isArray(parsed.activeAgents) ? parsed.activeAgents : []).filter((a): a is string =>
+      typeof a === "string" && validAgents.includes(a as AgentName)
     ) as AgentName[];
     return {
       activeAgents: activeAgents.length > 0 ? activeAgents : ["writer"],

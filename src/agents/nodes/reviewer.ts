@@ -4,6 +4,32 @@ import { createLLM } from "@/lib/llm";
 import { REVIEWER_SYSTEM_PROMPT } from "../prompts/reviewer";
 import { AgentOutput } from "@/types/agent";
 import { AgentModelConfig } from "@/store/settingsStore";
+import { getModelResponseText, parseJsonFromText } from "./response-utils";
+
+function parseReviewerSuggestions(value: unknown): NonNullable<AgentOutput["suggestions"]> {
+  const items = Array.isArray(value)
+    ? value
+    : value && typeof value === "object" && Array.isArray((value as { suggestions?: unknown }).suggestions)
+      ? (value as { suggestions: unknown[] }).suggestions
+      : [];
+
+  return items
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const rec = item as Record<string, unknown>;
+      const severity = rec.severity;
+      return {
+        location: typeof rec.location === "string" ? rec.location : "General",
+        issue: typeof rec.issue === "string" ? rec.issue : "Needs review",
+        suggestion: typeof rec.suggestion === "string" ? rec.suggestion : "",
+        severity:
+          severity === "warning" || severity === "error" || severity === "info"
+            ? severity
+            : "info",
+      };
+    })
+    .filter((item): item is NonNullable<AgentOutput["suggestions"]>[number] => Boolean(item));
+}
 
 export async function reviewerAgent(
   state: LaTeXGraphState,
@@ -34,15 +60,11 @@ export async function reviewerAgent(
     },
   ]);
 
-  const text =
-    typeof response.content === "string"
-      ? response.content
-      : JSON.stringify(response.content);
+  const text = getModelResponseText(response.content);
 
   let suggestions: AgentOutput["suggestions"] = [];
   try {
-    const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    suggestions = JSON.parse(cleaned);
+    suggestions = parseReviewerSuggestions(parseJsonFromText(text));
   } catch {
     suggestions = [
       {

@@ -2,6 +2,7 @@ import { RunnableConfig } from "@langchain/core/runnables";
 import { LaTeXGraphState } from "../state";
 import { createLLM } from "@/lib/llm";
 import { AgentModelConfig } from "@/store/settingsStore";
+import { getModelResponseText } from "./response-utils";
 
 export const AGGREGATOR_PROMPT = `You are a helpful assistant. Summarize what the AI agents did to the user's LaTeX document in 2-3 sentences. Be concise and friendly. If there are reviewer suggestions, briefly mention the most important ones.
 
@@ -101,10 +102,7 @@ export async function aggregatorNode(
       },
     ]);
 
-    const rawText =
-      typeof response.content === "string"
-        ? response.content
-        : JSON.stringify(response.content);
+    const rawText = getModelResponseText(response.content);
 
     // Extract continueReasoning JSON from last line
     const lines = rawText.trim().split("\n");
